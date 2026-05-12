@@ -34,6 +34,13 @@
           <input id="panelLetter" type="text" value="" placeholder="例如 F">
         </label>
         <label>
+          图型
+          <select id="figureType">
+            <option value="if" selected>IF 荧光图</option>
+            <option value="ihc">IHC 组化图</option>
+          </select>
+        </label>
+        <label>
           排版方式
           <select id="layoutMode">
             <option value="auto" selected>自动识别</option>
@@ -92,6 +99,37 @@
         <label class="check-label">
           <input id="showSampleName" type="checkbox" checked>
           显示组别名
+        </label>
+      </section>
+
+      <section id="ihcSettings" class="settings" hidden>
+        <label>
+          低倍列名
+          <input id="ihcLowLabel" type="text" value="4X">
+        </label>
+        <label>
+          高倍列名
+          <input id="ihcHighLabel" type="text" value="20X">
+        </label>
+        <label>
+          ROI X
+          <input id="ihcRoiX" type="number" min="0" max="1" step="0.05" value="0.32">
+        </label>
+        <label>
+          ROI Y
+          <input id="ihcRoiY" type="number" min="0" max="1" step="0.05" value="0.36">
+        </label>
+        <label>
+          ROI 宽
+          <input id="ihcRoiW" type="number" min="0.05" max="1" step="0.05" value="0.30">
+        </label>
+        <label>
+          ROI 高
+          <input id="ihcRoiH" type="number" min="0.05" max="1" step="0.05" value="0.28">
+        </label>
+        <label class="check-label">
+          <input id="ihcDrawConnectors" type="checkbox" checked>
+          显示连线
         </label>
       </section>
 

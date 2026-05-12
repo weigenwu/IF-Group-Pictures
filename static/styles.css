@@ -291,6 +291,42 @@ button:disabled {
   background: #000;
 }
 
+.ihc-preview {
+  overflow-x: auto;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ihc-grid {
+  display: grid;
+  gap: 14px 28px;
+  min-width: 760px;
+  align-items: center;
+  background: #fff;
+}
+
+.ihc-cell {
+  position: relative;
+  min-width: 0;
+  border: 1px solid #2a2f33;
+  background: #f7f7f7;
+}
+
+.ihc-cell img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.72 / 1;
+  object-fit: cover;
+}
+
+.ihc-roi {
+  position: absolute;
+  border: 2px solid #1f2328;
+  pointer-events: none;
+}
+
 @media (max-width: 860px) {
   .toolbar {
     align-items: stretch;
@@ -301,7 +337,8 @@ button:disabled {
     justify-content: flex-start;
   }
 
-  .figure-grid {
+  .figure-grid,
+  .ihc-grid {
     grid-template-columns: 1fr !important;
   }
 

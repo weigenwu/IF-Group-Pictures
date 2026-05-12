@@ -17,6 +17,7 @@ const rowsPerSlideEl = document.getElementById("rowsPerSlide");
 const backgroundEl = document.getElementById("background");
 const deckTitleEl = document.getElementById("deckTitle");
 const panelLetterEl = document.getElementById("panelLetter");
+const figureTypeEl = document.getElementById("figureType");
 const layoutModeEl = document.getElementById("layoutMode");
 const groupCountEl = document.getElementById("groupCount");
 const imagesPerGroupEl = document.getElementById("imagesPerGroup");
@@ -24,6 +25,14 @@ const showSampleNameEl = document.getElementById("showSampleName");
 const groupLabelSideEl = document.getElementById("groupLabelSide");
 const fitModeEl = document.getElementById("fitMode");
 const exportFormatEl = document.getElementById("exportFormat");
+const ihcSettingsEl = document.getElementById("ihcSettings");
+const ihcLowLabelEl = document.getElementById("ihcLowLabel");
+const ihcHighLabelEl = document.getElementById("ihcHighLabel");
+const ihcRoiXEl = document.getElementById("ihcRoiX");
+const ihcRoiYEl = document.getElementById("ihcRoiY");
+const ihcRoiWEl = document.getElementById("ihcRoiW");
+const ihcRoiHEl = document.getElementById("ihcRoiH");
+const ihcDrawConnectorsEl = document.getElementById("ihcDrawConnectors");
 
 let currentJob = null;
 let selectedFiles = [];
@@ -40,6 +49,11 @@ const defaultLabels = {
   Merged: "Merge",
 };
 
+figureTypeEl.addEventListener("change", () => {
+  updateFigureTypeControls();
+  refreshLayoutInputs();
+});
+
 layoutModeEl.addEventListener("change", () => {
   updateManualControls();
   refreshLayoutInputs();
@@ -47,6 +61,10 @@ layoutModeEl.addEventListener("change", () => {
 
 groupCountEl.addEventListener("change", refreshLayoutInputs);
 imagesPerGroupEl.addEventListener("change", refreshLayoutInputs);
+[ihcLowLabelEl, ihcHighLabelEl, ihcRoiXEl, ihcRoiYEl, ihcRoiWEl, ihcRoiHEl, ihcDrawConnectorsEl].forEach((input) => {
+  input.addEventListener("input", refreshLayoutInputs);
+  input.addEventListener("change", refreshLayoutInputs);
+});
 
 folderInput.addEventListener("change", () => {
   selectedFiles = Array.from(folderInput.files || []).filter((file) =>
@@ -74,6 +92,10 @@ uploadBtn.addEventListener("click", async () => {
     currentJob = data;
     groupCountEl.value = String(Math.max(data.groups.length, 1));
     imagesPerGroupEl.value = String(Math.max(data.channels.length, 1));
+    if (figureTypeEl.value === "ihc") {
+      groupCountEl.value = String(Math.max(1, Math.ceil(data.images.length / 2)));
+      imagesPerGroupEl.value = "2";
+    }
     rowsPerSlideEl.value = String(Math.min(Math.max(data.groups.length, 1), 6));
     refreshLayoutInputs();
     exportBtn.disabled = false;
@@ -112,10 +134,18 @@ exportBtn.addEventListener("click", async () => {
         job_id: currentJob.job_id,
         title: deckTitleEl.value.trim(),
         panel_letter: panelLetterEl.value.trim(),
+        figure_type: figureTypeEl.value,
         export_format: exportFormatEl.value,
         layout_mode: layoutModeEl.value,
         group_count: Number(groupCountEl.value),
         images_per_group: Number(imagesPerGroupEl.value),
+        ihc_low_label: ihcLowLabelEl.value.trim(),
+        ihc_high_label: ihcHighLabelEl.value.trim(),
+        ihc_roi_x: Number(ihcRoiXEl.value),
+        ihc_roi_y: Number(ihcRoiYEl.value),
+        ihc_roi_w: Number(ihcRoiWEl.value),
+        ihc_roi_h: Number(ihcRoiHEl.value),
+        ihc_draw_connectors: ihcDrawConnectorsEl.checked,
         rows_per_slide: Number(rowsPerSlideEl.value),
         background: backgroundEl.value,
         show_sample_name: showSampleNameEl.checked,
@@ -254,15 +284,45 @@ function parseJson(text) {
 }
 
 function updateManualControls() {
-  const manual = layoutModeEl.value === "manual";
+  const manual = layoutModeEl.value === "manual" || figureTypeEl.value === "ihc";
   document.querySelectorAll(".manual-only").forEach((node) => {
     node.hidden = !manual;
   });
 }
 
+function updateFigureTypeControls() {
+  const ihc = figureTypeEl.value === "ihc";
+  ihcSettingsEl.hidden = !ihc;
+  channelPanel.hidden = ihc || channelPanel.hidden;
+  if (ihc) {
+    layoutModeEl.value = "manual";
+    layoutModeEl.disabled = true;
+    imagesPerGroupEl.value = "2";
+    imagesPerGroupEl.disabled = true;
+  } else {
+    layoutModeEl.disabled = false;
+    imagesPerGroupEl.disabled = false;
+  }
+}
+
 function refreshLayoutInputs() {
   if (!currentJob) return;
+  updateFigureTypeControls();
   updateManualControls();
+  if (figureTypeEl.value === "ihc") {
+    const groupCount = clampNumber(groupCountEl.value, 1, 50);
+    groupCountEl.value = String(groupCount);
+    rowsPerSlideEl.value = String(Math.min(groupCount, 4));
+    imagesPerGroupEl.value = "2";
+    const ihcGroups = Array.from({ length: groupCount }, (_, index) => ({
+      key: `ihc_group_${String(index + 1).padStart(2, "0")}`,
+      display: `Group ${index + 1}`,
+    }));
+    renderGroupLabels(ihcGroups);
+    channelPanel.hidden = true;
+    renderIhcPreview(currentJob.images, ihcGroups);
+    return;
+  }
   if (layoutModeEl.value === "manual") {
     const groupCount = clampNumber(groupCountEl.value, 1, 50);
     const imagesPerGroup = clampNumber(imagesPerGroupEl.value, 1, 20);
@@ -384,6 +444,54 @@ function renderManualPreview(images, channels, groups) {
       cell.className = "figure-cell";
       if (image) {
         cell.innerHTML = `<img src="${image.preview_url}" alt="${escapeHtml(image.filename)}">`;
+      } else {
+        cell.innerHTML = `<div class="missing">missing</div>`;
+      }
+      figure.appendChild(cell);
+    });
+  });
+
+  previewEl.appendChild(figure);
+}
+
+function renderIhcPreview(images, groups) {
+  previewEl.className = "preview ihc-preview";
+  previewEl.innerHTML = "";
+
+  const figure = document.createElement("div");
+  figure.className = "ihc-grid";
+  figure.style.gridTemplateColumns = "96px minmax(220px, 1fr) minmax(220px, 1fr)";
+
+  figure.appendChild(document.createElement("div"));
+  [ihcLowLabelEl.value || "4X", ihcHighLabelEl.value || "20X"].forEach((label) => {
+    const header = document.createElement("div");
+    header.className = "figure-marker";
+    header.textContent = label;
+    figure.appendChild(header);
+  });
+
+  groups.forEach((group, groupIndex) => {
+    const label = document.createElement("div");
+    label.className = "figure-group-label";
+    label.textContent = group.display;
+    figure.appendChild(label);
+
+    const lowImage = images[groupIndex * 2];
+    const highImage = images[groupIndex * 2 + 1];
+    [lowImage, highImage].forEach((image, columnIndex) => {
+      const cell = document.createElement("div");
+      cell.className = columnIndex === 0 ? "ihc-cell ihc-low-cell" : "ihc-cell";
+      if (image) {
+        cell.innerHTML = `<img src="${image.preview_url}" alt="${escapeHtml(image.filename)}">`;
+        if (columnIndex === 0) {
+          const roi = document.createElement("div");
+          roi.className = "ihc-roi";
+          roi.style.left = `${clampNumber(Number(ihcRoiXEl.value) * 100, 0, 100)}%`;
+          roi.style.top = `${clampNumber(Number(ihcRoiYEl.value) * 100, 0, 100)}%`;
+          roi.style.width = `${clampNumber(Number(ihcRoiWEl.value) * 100, 5, 100)}%`;
+          roi.style.height = `${clampNumber(Number(ihcRoiHEl.value) * 100, 5, 100)}%`;
+          cell.appendChild(roi);
+        }
       } else {
         cell.innerHTML = `<div class="missing">missing</div>`;
       }
