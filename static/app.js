@@ -4,6 +4,11 @@ const exportBtn = document.getElementById("exportBtn");
 const statusEl = document.getElementById("status");
 const summaryEl = document.getElementById("summary");
 const previewEl = document.getElementById("preview");
+const progressPanel = document.getElementById("progressPanel");
+const phaseTextEl = document.getElementById("phaseText");
+const elapsedTextEl = document.getElementById("elapsedText");
+const progressBarEl = document.getElementById("progressBar");
+const progressDetailEl = document.getElementById("progressDetail");
 const channelPanel = document.getElementById("channelPanel");
 const channelsEl = document.getElementById("channels");
 const groupPanel = document.getElementById("groupPanel");
@@ -22,6 +27,10 @@ const exportFormatEl = document.getElementById("exportFormat");
 
 let currentJob = null;
 let selectedFiles = [];
+let progressStartedAt = 0;
+let uploadStartedAt = 0;
+let uploadFinishedAt = 0;
+let progressTimer = null;
 
 const defaultLabels = {
   ch00: "DAPI",
@@ -53,25 +62,27 @@ folderInput.addEventListener("change", () => {
 
 uploadBtn.addEventListener("click", async () => {
   if (!selectedFiles.length) return;
-  setBusy(true, "正在读取图片并生成预览...");
+  setBusy(true, "正在上传并生成预览...");
+  startProgress("准备上传", "正在准备文件...");
   const formData = new FormData();
   selectedFiles.forEach((file) => {
     formData.append("files", file, file.webkitRelativePath || file.name);
   });
 
   try {
-    const response = await fetch("/api/upload", { method: "POST", body: formData });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "上传失败");
+    const data = await uploadWithProgress(formData);
     currentJob = data;
     groupCountEl.value = String(Math.max(data.groups.length, 1));
     imagesPerGroupEl.value = String(Math.max(data.channels.length, 1));
     rowsPerSlideEl.value = String(Math.min(Math.max(data.groups.length, 1), 6));
     refreshLayoutInputs();
     exportBtn.disabled = false;
+    finishProgress(data);
     statusEl.textContent = `识别到 ${data.groups.length} 组，${data.image_count} 张图`;
     summaryEl.textContent = "修改 marker 和组别名称后导出 PPTX。默认使用白底、顶部 marker、侧边组别。";
   } catch (error) {
+    stopProgressTimer();
+    setProgress(0, "处理失败", error.message);
     statusEl.textContent = error.message;
   } finally {
     setBusy(false);
@@ -130,6 +141,116 @@ function setBusy(isBusy, message) {
   uploadBtn.disabled = isBusy || selectedFiles.length === 0;
   exportBtn.disabled = isBusy || !currentJob;
   if (message) statusEl.textContent = message;
+}
+
+function uploadWithProgress(formData) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+    xhr.responseType = "json";
+
+    xhr.upload.addEventListener("loadstart", () => {
+      uploadStartedAt = performance.now();
+      setProgress(0, "上传中", "开始上传文件...");
+    });
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+        setProgress(
+          percent,
+          "上传中",
+          `${formatBytes(event.loaded)} / ${formatBytes(event.total)} (${percent}%)`
+        );
+      } else {
+        setProgress(8, "上传中", `${formatBytes(event.loaded)} 已上传`);
+      }
+    });
+
+    xhr.upload.addEventListener("load", () => {
+      uploadFinishedAt = performance.now();
+      setProgress(100, "服务器处理中", "上传完成，正在生成预览和分组...");
+    });
+
+    xhr.addEventListener("load", () => {
+      const data = xhr.response || parseJson(xhr.responseText);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data);
+      } else {
+        reject(new Error((data && data.error) || `上传失败：HTTP ${xhr.status}`));
+      }
+    });
+
+    xhr.addEventListener("error", () => reject(new Error("网络错误，上传失败")));
+    xhr.addEventListener("abort", () => reject(new Error("上传已取消")));
+    xhr.send(formData);
+  });
+}
+
+function startProgress(phase, detail) {
+  progressPanel.hidden = false;
+  progressStartedAt = performance.now();
+  uploadStartedAt = 0;
+  uploadFinishedAt = 0;
+  setProgress(0, phase, detail);
+  stopProgressTimer();
+  progressTimer = window.setInterval(updateElapsedText, 200);
+}
+
+function finishProgress(data) {
+  const totalSeconds = elapsedSeconds(progressStartedAt);
+  const uploadSeconds = uploadFinishedAt ? ((uploadFinishedAt - uploadStartedAt) / 1000) : 0;
+  const serverSeconds = Number(data.server_processing_seconds || 0);
+  setProgress(
+    100,
+    "完成",
+    `上传 ${uploadSeconds.toFixed(1)}s，服务器处理 ${serverSeconds.toFixed(1)}s，总计 ${totalSeconds.toFixed(1)}s`
+  );
+  stopProgressTimer();
+  elapsedTextEl.textContent = `${totalSeconds.toFixed(1)}s`;
+}
+
+function setProgress(percent, phase, detail) {
+  phaseTextEl.textContent = phase;
+  progressBarEl.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  progressDetailEl.textContent = detail;
+  updateElapsedText();
+}
+
+function updateElapsedText() {
+  if (!progressStartedAt) return;
+  elapsedTextEl.textContent = `${elapsedSeconds(progressStartedAt).toFixed(1)}s`;
+}
+
+function stopProgressTimer() {
+  if (progressTimer) {
+    window.clearInterval(progressTimer);
+    progressTimer = null;
+  }
+}
+
+function elapsedSeconds(startedAt) {
+  return (performance.now() - startedAt) / 1000;
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function parseJson(text) {
+  try {
+    return JSON.parse(text || "{}");
+  } catch {
+    return {};
+  }
 }
 
 function updateManualControls() {

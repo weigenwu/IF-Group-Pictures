@@ -7,6 +7,7 @@ import zipfile
 import uuid
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from flask import Flask, jsonify, render_template, request, send_file
@@ -847,6 +848,7 @@ def index():
 
 @app.route("/api/upload", methods=["POST"])
 def upload_folder():
+    started_at = perf_counter()
     files = request.files.getlist("files")
     supported_files = [file for file in files if file.filename and is_supported_image(file.filename)]
     if not supported_files:
@@ -887,7 +889,9 @@ def upload_folder():
 
     manifest = make_job_manifest(job_id, items)
     manifest_path(job_id).write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    return jsonify(public_manifest(manifest))
+    response = public_manifest(manifest)
+    response["server_processing_seconds"] = round(perf_counter() - started_at, 2)
+    return jsonify(response)
 
 
 @app.route("/api/jobs/<job_id>/preview/<preview_name>")
