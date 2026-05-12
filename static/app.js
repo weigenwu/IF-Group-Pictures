@@ -101,7 +101,9 @@ uploadBtn.addEventListener("click", async () => {
     exportBtn.disabled = false;
     finishProgress(data);
     statusEl.textContent = `识别到 ${data.groups.length} 组，${data.image_count} 张图`;
-    summaryEl.textContent = "修改 marker 和组别名称后导出 PPTX。默认使用白底、顶部 marker、侧边组别。";
+    summaryEl.textContent = figureTypeEl.value === "ihc"
+      ? "修改低倍/高倍列名、ROI 和组别名称后导出。"
+      : "修改 marker 和组别名称后导出。默认使用白底、顶部 marker、侧边组别。";
   } catch (error) {
     stopProgressTimer();
     setProgress(0, "处理失败", error.message);
