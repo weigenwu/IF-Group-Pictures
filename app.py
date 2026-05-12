@@ -127,16 +127,15 @@ def image_to_rgb(image: Image.Image) -> Image.Image:
     return image.convert("RGB")
 
 
-def prepare_image(source_path: Path, converted_path: Path, preview_path: Path) -> dict[str, Any]:
+def prepare_image(source_path: Path, preview_path: Path) -> dict[str, Any]:
     with Image.open(source_path) as image:
         image.seek(0)
-        rgb = image_to_rgb(image)
-        width, height = rgb.size
-        converted_path.parent.mkdir(parents=True, exist_ok=True)
+        image = ImageOps.exif_transpose(image)
+        width, height = image.size
         preview_path.parent.mkdir(parents=True, exist_ok=True)
-        rgb.save(converted_path, "PNG", compress_level=4)
-        preview = rgb.copy()
+        preview = image.copy()
         preview.thumbnail(MAX_PREVIEW_SIZE, Image.Resampling.LANCZOS)
+        preview = image_to_rgb(preview)
         preview.save(preview_path, "PNG", compress_level=4)
     return {"width": width, "height": height}
 
@@ -291,6 +290,10 @@ def center_crop_image(source_path: Path, output_path: Path, target_aspect: float
             box = (0, top, width, top + new_height)
         rgb.crop(box).save(output_path, "PNG", compress_level=4)
     return output_path
+
+
+def image_source_path(image: dict[str, Any]) -> Path:
+    return Path(image.get("converted_path") or image["source_path"])
 
 
 def add_image_cover(
@@ -572,12 +575,13 @@ def build_pptx(manifest: dict[str, Any], settings: dict[str, Any]) -> Path:
                 col_left = actual_grid_left + column_index * (cell_size + col_gap)
                 image = images_by_channel.get(channel)
                 if image:
+                    source_path = image_source_path(image)
                     if fit_mode == "contain":
-                        add_image_contained(slide, Path(image["converted_path"]), col_left, row_top, cell_size, cell_size)
+                        add_image_contained(slide, source_path, col_left, row_top, cell_size, cell_size)
                     else:
                         add_image_cover(
                             slide,
-                            Path(image["converted_path"]),
+                            source_path,
                             col_left,
                             row_top,
                             cell_size,
@@ -782,7 +786,7 @@ def build_raster_pages(manifest: dict[str, Any], settings: dict[str, Any]) -> li
                 )
                 image = images_by_channel.get(channel)
                 if image:
-                    with Image.open(image["converted_path"]) as source:
+                    with Image.open(image_source_path(image)) as source:
                         rgb = image_to_rgb(source)
                         if fit_mode == "contain":
                             rendered = resize_contain(rgb, (box[2] - box[0], box[3] - box[1]))
@@ -851,7 +855,6 @@ def upload_folder():
     job_id = uuid.uuid4().hex
     job_dir = JOBS_DIR / job_id
     upload_dir = job_dir / "uploads"
-    converted_dir = job_dir / "converted"
     preview_dir = job_dir / "preview"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -865,11 +868,9 @@ def upload_folder():
         storage.save(destination)
 
         preview_name = f"{index:05d}_{uuid.uuid4().hex[:8]}.png"
-        converted_name = f"{index:05d}_{uuid.uuid4().hex[:8]}.png"
-        converted_path = converted_dir / converted_name
         preview_path = preview_dir / preview_name
         try:
-            image_info = prepare_image(destination, converted_path, preview_path)
+            image_info = prepare_image(destination, preview_path)
         except Exception as exc:
             return jsonify({"error": f"Failed to read image {storage.filename}: {exc}"}), 400
 
@@ -878,7 +879,6 @@ def upload_folder():
                 "relative_path": str(relative_path).replace("\\", "/"),
                 "filename": Path(storage.filename).name,
                 "source_path": str(destination),
-                "converted_path": str(converted_path),
                 "preview_name": preview_name,
                 "width": image_info["width"],
                 "height": image_info["height"],
