@@ -1,6 +1,14 @@
-# 组图神器
+# FigureLab 科研组图
 
-支持 IF 荧光图和 IHC 组化图，选择整个文件夹后自动生成论文组图版式，并导出为 `PPTX / PNG / JPG / PDF`。
+同一套网页中提供荧光 / IHC 与 Western blot 两个独立工作台。荧光 / IHC 支持选择整个文件夹后自动生成论文组图版式，并导出为 `PPTX / PNG / JPG / PDF`；WB 工作台在浏览器本地处理 TIFF 条带并导出论文图。
+
+## 工作台入口
+
+- `/`：荧光 / IHC 组图，图片上传至当前服务器处理
+- `/wb`：WB 组图，图片只在当前浏览器中处理
+- `https://weigenwu.github.io/wb/`：WB 的 GitHub Pages 镜像，保留原域名下的自动保存项目
+
+WB 自动保存按网站域名隔离。需要在 Pages 与 Render 之间迁移时，请先在原页面导出 `.wb-project`，再在目标页面导入。
 
 ## 功能
 
@@ -24,7 +32,8 @@ python app.py
 打开：
 
 ```text
-http://127.0.0.1:5055/
+http://127.0.0.1:5055/       # 荧光 / IHC
+http://127.0.0.1:5055/wb     # WB
 ```
 
 ## IF 文件命名建议

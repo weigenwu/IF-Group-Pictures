@@ -1,0 +1,2423 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="一个在浏览器本地运行的 Western blot 科研组图工具。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232864e8'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-family='Arial' font-size='22' font-weight='700' fill='white'%3EWB%3C/text%3E%3C/svg%3E">
+  <title>FigureLab · WB 科研组图</title>
+  <style>
+    :root {
+      --ink: #142033;
+      --muted: #627089;
+      --line: #dce4ef;
+      --bg: #f5f8fc;
+      --panel: #ffffff;
+      --blue: #2864e8;
+      --blue-dark: #1d4fbd;
+      --blue-soft: #eaf1ff;
+      --mint: #dff7ee;
+      --mint-ink: #0d7055;
+      --orange: #ff8a4c;
+      --shadow: 0 24px 70px rgba(32, 65, 120, .13);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 9% 7%, rgba(40, 100, 232, .09), transparent 24rem),
+        var(--bg);
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    }
+    button, input, textarea, select { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    a { color: inherit; text-decoration: none; }
+    button { color: inherit; }
+    :focus-visible { outline: 3px solid rgba(40, 100, 232, .35); outline-offset: 3px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 68px;
+      padding: 0 clamp(18px, 5vw, 74px);
+      border-bottom: 1px solid rgba(220, 228, 239, .9);
+      background: rgba(245, 248, 252, .9);
+      backdrop-filter: blur(16px);
+    }
+    .brand { display: inline-flex; align-items: center; gap: 11px; font-weight: 900; letter-spacing: -.02em; }
+    .brand-mark {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 10px;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: 0 8px 18px rgba(40, 100, 232, .24);
+      font-size: 13px;
+    }
+    .topbar nav { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; font-weight: 700; }
+    .topbar nav a:hover { color: var(--blue); }
+    .nav-cta { padding: 10px 15px; border-radius: 10px; color: #fff !important; background: var(--blue); }
+    .tool-tab { padding: 9px 11px; border-radius: 9px; }
+    .tool-tab[aria-current="page"] { color: var(--blue); background: var(--blue-soft); }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(310px, .86fr) minmax(430px, 1.14fr);
+      align-items: center;
+      gap: clamp(36px, 6vw, 82px);
+      min-height: 690px;
+      padding: 76px clamp(18px, 5vw, 74px) 58px;
+      overflow: hidden;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 18px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: 22px; height: 2px; background: currentColor; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      max-width: 650px;
+      margin-bottom: 24px;
+      font-size: clamp(42px, 5.2vw, 72px);
+      line-height: 1.08;
+      letter-spacing: -.055em;
+    }
+    h1 span { color: var(--blue); }
+    .lead { max-width: 610px; color: var(--muted); font-size: clamp(17px, 1.7vw, 20px); line-height: 1.8; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 32px 0 20px; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 21px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 850;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .button:hover { transform: translateY(-1px); box-shadow: 0 10px 25px rgba(32, 65, 120, .12); }
+    .button.primary { color: #fff; border-color: var(--blue); background: var(--blue); }
+    .button.primary:hover { background: var(--blue-dark); }
+    .button.ghost { background: rgba(255, 255, 255, .66); }
+    .button.small { min-height: 38px; padding: 0 14px; border-radius: 9px; font-size: 13px; }
+    .privacy-note { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 13px; }
+    .privacy-note svg { flex: 0 0 auto; color: var(--mint-ink); }
+
+    .hero > *, .hero-product, .hero-canvas-shell { min-width: 0; }
+    .hero-product {
+      position: relative;
+      width: 100%;
+      padding: 18px;
+      border: 1px solid rgba(194, 207, 227, .86);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, .82);
+      box-shadow: var(--shadow);
+      transform: rotate(1deg);
+    }
+    .hero-product::before {
+      content: "";
+      position: absolute;
+      inset: -26px -28px auto auto;
+      z-index: -1;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: rgba(255, 138, 76, .16);
+      filter: blur(2px);
+    }
+    .window-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .window-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 850; }
+    .window-dots { display: flex; gap: 5px; }
+    .window-dots i { display: block; width: 8px; height: 8px; border-radius: 50%; background: #d5deeb; }
+    .local-badge { padding: 7px 10px; border-radius: 999px; color: var(--mint-ink); background: var(--mint); font-size: 11px; font-weight: 900; letter-spacing: .05em; }
+    .hero-canvas-shell { overflow: hidden; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+    #heroCanvas { display: block; width: 100%; max-width: 100%; height: auto; }
+    .hero-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 12px; }
+    .hero-metrics div { padding: 12px; border-radius: 12px; background: #f5f8fd; }
+    .hero-metrics strong, .hero-metrics span { display: block; }
+    .hero-metrics strong { margin-bottom: 4px; font-size: 14px; }
+    .hero-metrics span { color: var(--muted); font-size: 11px; }
+
+    .promise-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin: 0 clamp(18px, 5vw, 74px) 92px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--line);
+      box-shadow: 0 12px 40px rgba(32, 65, 120, .06);
+    }
+    .promise-strip div { padding: 24px 28px; background: rgba(255, 255, 255, .85); }
+    .promise-strip strong, .promise-strip span { display: block; }
+    .promise-strip strong { margin-bottom: 7px; }
+    .promise-strip span { color: var(--muted); font-size: 14px; }
+
+    .studio-section { padding: 80px clamp(14px, 4vw, 56px) 94px; background: #fff; border-block: 1px solid var(--line); }
+    .section-head { max-width: 760px; margin: 0 auto 40px; text-align: center; }
+    .section-head .eyebrow { justify-content: center; }
+    .section-head h2 { margin-bottom: 15px; font-size: clamp(32px, 4vw, 48px); letter-spacing: -.035em; }
+    .section-head p { color: var(--muted); line-height: 1.75; }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(310px, 360px) minmax(0, 1fr);
+      gap: 18px;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+    .controls, .preview-panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: 0 18px 50px rgba(32, 65, 120, .07); }
+    .controls { overflow: hidden; }
+    .control-block { padding: 22px; border-bottom: 1px solid var(--line); }
+    .control-block:last-child { border-bottom: 0; }
+    .control-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .control-title h3 { margin: 0; font-size: 16px; }
+    .step { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 8px; color: var(--blue); background: var(--blue-soft); font-size: 12px; font-weight: 900; }
+    label.caption { display: block; margin-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 800; }
+    textarea, select, input[type="text"], input[type="number"] {
+      width: 100%;
+      border: 1px solid #cfd9e8;
+      border-radius: 10px;
+      color: var(--ink);
+      background: #fff;
+    }
+    textarea { min-height: 74px; padding: 11px 12px; resize: vertical; line-height: 1.5; }
+    select, input[type="text"], input[type="number"] { min-height: 40px; padding: 0 10px; }
+    .field-help { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .group-summary { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .chip { padding: 7px 9px; border-radius: 999px; color: var(--blue-dark); background: var(--blue-soft); font-size: 11px; font-weight: 800; }
+    .inline-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+    .dropzone {
+      display: grid;
+      min-height: 104px;
+      padding: 15px;
+      place-items: center;
+      border: 1.5px dashed #9bb2d2;
+      border-radius: 12px;
+      color: var(--muted);
+      background: #f8fbff;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color .18s ease, background .18s ease;
+    }
+    .dropzone:hover, .dropzone.is-over { border-color: var(--blue); background: var(--blue-soft); }
+    .dropzone strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 13px; }
+    .dropzone span { font-size: 11px; }
+    .row-list { display: grid; gap: 10px; margin-top: 14px; }
+    .protein-row { padding: 11px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcfe; }
+    .protein-row-top { display: grid; grid-template-columns: 44px minmax(0, 1fr) 72px; gap: 8px; align-items: center; }
+    .row-thumb { display: grid; width: 44px; height: 38px; place-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; color: #9aa8bb; background: #eef2f7; font-size: 10px; }
+    .row-thumb img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1); }
+    .protein-row input { min-width: 0; min-height: 36px; font-size: 12px; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .icon-button, .text-button {
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .icon-button { min-width: 31px; padding: 0 7px; }
+    .text-button { padding: 0 9px; }
+    .text-button:hover, .icon-button:hover { color: var(--blue); border-color: #a9bdec; }
+    .text-button.danger:hover { color: #c02f2f; border-color: #edb5b5; }
+    .text-button:disabled { opacity: .45; cursor: not-allowed; }
+
+    .range-field { display: grid; grid-template-columns: 1fr 46px; gap: 10px; align-items: center; margin-top: 13px; }
+    .range-field label { color: var(--muted); font-size: 12px; font-weight: 750; }
+    .range-field input[type="range"] { width: 100%; accent-color: var(--blue); }
+    .range-value { text-align: right; color: var(--ink); font-size: 11px; font-weight: 850; }
+    .toggle-list { display: grid; gap: 10px; margin-top: 16px; }
+    .toggle { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .toggle input { accent-color: var(--blue); }
+
+    .preview-panel { min-width: 0; overflow: hidden; }
+    .preview-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 62px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcff;
+    }
+    .preview-toolbar strong { font-size: 14px; }
+    .status { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+    .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #20b486; box-shadow: 0 0 0 4px rgba(32, 180, 134, .12); }
+    .canvas-stage { min-height: 560px; padding: clamp(18px, 3vw, 40px); overflow: auto; background: #edf2f8; }
+    .figure-paper { width: max-content; min-width: 0; margin: 0 auto; padding: 18px; border-radius: 6px; background: #fff; box-shadow: 0 16px 38px rgba(43, 62, 92, .14); }
+    #figureCanvas { display: block; width: auto; max-width: none; height: auto; }
+    .figure-paper.is-wide { width: 100%; }
+    #figureCanvas.is-wide { width: 100%; max-width: 100%; }
+    .export-bar { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 18px; border-top: 1px solid var(--line); }
+    .export-stack { display: grid; gap: 9px; min-width: 0; }
+    .export-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .export-setting { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: #fff; font-size: 12px; font-weight: 800; }
+    .export-setting select { width: auto; min-height: 28px; padding: 0 25px 0 7px; border: 0; color: var(--ink); background: #fff; font-size: 12px; font-weight: 850; }
+    .project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+    .autosave-status { color: var(--muted); font-size: 11px; }
+    .export-note { max-width: 310px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; text-align: right; }
+
+    .features { padding: 92px clamp(18px, 5vw, 74px); }
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 1180px; margin: 0 auto; }
+    .feature-card { padding: 26px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255, 255, 255, .76); }
+    .feature-icon { display: grid; width: 42px; height: 42px; margin-bottom: 18px; place-items: center; border-radius: 12px; color: var(--blue); background: var(--blue-soft); font-weight: 900; }
+    .feature-card h3 { margin-bottom: 9px; font-size: 18px; }
+    .feature-card p { margin-bottom: 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+
+    footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 30px clamp(18px, 5vw, 74px); border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    footer strong { color: var(--ink); }
+
+    dialog {
+      width: min(1000px, calc(100vw - 28px));
+      max-height: calc(100vh - 28px);
+      padding: 0;
+      overflow: hidden auto;
+      border: 0;
+      border-radius: 20px;
+      color: var(--ink);
+      background: #fff;
+      box-shadow: 0 35px 100px rgba(9, 24, 49, .28);
+    }
+    dialog::backdrop { background: rgba(13, 25, 46, .64); backdrop-filter: blur(5px); }
+    .dialog-head, .dialog-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; }
+    .dialog-head { border-bottom: 1px solid var(--line); }
+    .dialog-head h2 { margin: 0; font-size: 18px; }
+    .dialog-head p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .dialog-body { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; padding: 18px; }
+    .editor-stage { overflow: hidden; border-radius: 12px; background: #17202e; }
+    #editorCanvas { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+    .editor-controls { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8faff; }
+    .editor-controls h3 { margin-bottom: 16px; font-size: 14px; }
+    .editor-controls .range-field { grid-template-columns: 1fr 42px; }
+    .editor-copy { margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--line); }
+    .editor-copy select { margin-bottom: 8px; font-size: 12px; }
+    .dialog-foot { border-top: 1px solid var(--line); }
+    .dialog-foot p { max-width: 520px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .dialog-actions { display: flex; gap: 8px; }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 100;
+      max-width: min(360px, calc(100vw - 40px));
+      padding: 13px 16px;
+      border-radius: 11px;
+      color: #fff;
+      background: #17243a;
+      box-shadow: 0 16px 42px rgba(10, 24, 46, .24);
+      font-size: 13px;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 1040px) {
+      .hero { grid-template-columns: 1fr; padding-top: 62px; }
+      .hero-copy { max-width: 760px; }
+      .hero-product { max-width: 820px; transform: none; }
+      .workspace { grid-template-columns: 1fr; }
+      .controls { display: grid; grid-template-columns: repeat(3, 1fr); align-items: start; }
+      .control-block { height: 100%; border-bottom: 0; border-right: 1px solid var(--line); }
+      .control-block:last-child { border-right: 0; }
+    }
+    @media (max-width: 760px) {
+      .topbar { padding-inline: 12px; gap: 8px; }
+      .brand > span:last-child { display: none; }
+      .topbar nav { gap: 4px; }
+      .topbar nav .tool-tab { display: inline-flex; padding: 8px 9px; font-size: 12px; }
+      .topbar .nav-cta { display: none; }
+      .hero { min-height: 0; padding-bottom: 42px; }
+      h1 { font-size: clamp(39px, 12vw, 58px); }
+      .promise-strip, .features-grid, .controls { grid-template-columns: 1fr; }
+      .promise-strip { margin-bottom: 58px; }
+      .control-block { border-right: 0; border-bottom: 1px solid var(--line); }
+      .control-block:last-child { border-bottom: 0; }
+      .canvas-stage { min-height: 390px; }
+      .export-bar { align-items: flex-start; flex-direction: column; }
+      .export-stack { width: 100%; }
+      .export-note { text-align: left; }
+      .dialog-body { grid-template-columns: 1fr; }
+      .editor-controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 16px; }
+      .dialog-foot { align-items: flex-start; flex-direction: column; }
+      footer { align-items: flex-start; flex-direction: column; }
+    }
+    @media (max-width: 520px) {
+      .hero-actions .button { width: 100%; }
+      .hero-metrics { grid-template-columns: 1fr; }
+      .studio-section { padding-inline: 8px; }
+      .controls, .preview-panel { border-radius: 14px; }
+      .export-actions, .project-actions { display: grid; width: 100%; grid-template-columns: 1fr 1fr; }
+      .export-setting, .autosave-status { grid-column: 1 / -1; }
+      .dialog-actions { width: 100%; }
+      .dialog-actions .button { flex: 1; }
+      .editor-controls { display: block; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/wb" aria-label="FigureLab WB 组图首页">
+      <span class="brand-mark">Fig</span>
+      <span>FigureLab</span>
+    </a>
+    <nav aria-label="组图工具">
+      <a class="tool-tab" href="/">荧光 / IHC</a>
+      <a class="tool-tab" href="/wb" aria-current="page">WB 组图</a>
+      <a class="nav-cta" href="#studio">开始使用</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Western blot figure builder</p>
+        <h1>把条带、分组和标注，排成一张<span>干净的 WB 图</span></h1>
+        <p class="lead">上传已经显影的条带图，网页会把蛋白名称、分组线和分子量统一排好。裁剪、亮度与对比度可随时微调，完成后直接导出论文可用的 PNG 或 SVG。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#studio">现在开始组图</a>
+          <button class="button ghost" id="loadDemoTop" type="button">看看示例数据</button>
+        </div>
+        <p class="privacy-note">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          本地处理：实验图片只在当前浏览器中读取，不会上传服务器。
+        </p>
+      </div>
+
+      <div class="hero-product" aria-label="组图界面预览">
+        <div class="window-bar">
+          <div class="window-title"><span class="window-dots"><i></i><i></i><i></i></span> Figure preview</div>
+          <span class="local-badge">LOCAL PROCESSING</span>
+        </div>
+        <div class="hero-canvas-shell"><canvas id="heroCanvas" width="1000" height="420"></canvas></div>
+        <div class="hero-metrics">
+          <div><strong id="heroRows">3 个蛋白</strong><span>标签自动对齐</span></div>
+          <div><strong id="heroSamples">6 个样本</strong><span>分组宽度自适应</span></div>
+          <div><strong>PNG · SVG</strong><span>一键导出</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="promise-strip" aria-label="核心特点">
+      <div><strong>本地处理</strong><span>原始实验图片不会被上传</span></div>
+      <div><strong>等比例呈现</strong><span>默认不拉伸、不改变条带比例</span></div>
+      <div><strong>可编辑导出</strong><span>SVG 中标签与分组线保持矢量</span></div>
+    </section>
+
+    <section class="studio-section" id="studio">
+      <div class="section-head">
+        <p class="eyebrow">在线工作台</p>
+        <h2>三步完成一张 WB 组图</h2>
+        <p>先写分组，再上传每一行条带，最后微调并导出。默认示例可直接改，不需要安装任何软件。</p>
+      </div>
+
+      <div class="workspace">
+        <aside class="controls" aria-label="组图设置">
+          <section class="control-block">
+            <div class="control-title"><h3>样本分组</h3><span class="step">1</span></div>
+            <label class="caption" for="groupInput">每组名称与样本数</label>
+            <textarea id="groupInput" spellcheck="false">Control × 1, Group 1 × 1, Group 2 × 1</textarea>
+            <p class="field-help">格式示例：Control × 3, Drug × 3；最多 24 个样本。</p>
+            <label class="caption" for="laneLabelInput" style="margin-top:14px">泳道标签（可选）</label>
+            <textarea id="laneLabelInput" spellcheck="false" placeholder="例如 Control, Group 1, Group 2"></textarea>
+            <p class="field-help">逗号分隔，数量须与总样本数一致；留空会自动生成。</p>
+            <div class="inline-actions">
+              <button class="button small primary" id="applyGroups" type="button">应用分组与标签</button>
+              <button class="button small" id="loadDemo" type="button">恢复示例</button>
+            </div>
+            <div class="group-summary" id="groupSummary"></div>
+          </section>
+
+          <section class="control-block">
+            <div class="control-title"><h3>条带行</h3><span class="step">2</span></div>
+            <input id="multiFile" type="file" accept=".png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,image/png,image/jpeg,image/webp,image/bmp,image/tiff" multiple hidden>
+            <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="上传条带图片">
+              <div><strong>拖入或选择条带图片</strong><span>PNG / JPG / WebP / BMP / 8-bit 灰度 TIFF，可一次多选</span></div>
+            </div>
+            <div class="row-list" id="rowList"></div>
+            <div class="inline-actions">
+              <button class="button small" id="addRow" type="button">＋ 新增空行</button>
+            </div>
+          </section>
+
+          <section class="control-block">
+            <div class="control-title"><h3>版式细节</h3><span class="step">3</span></div>
+            <label class="caption" for="layoutMode">顶部标注样式</label>
+            <select id="layoutMode">
+              <option value="groups">分组名称＋横线</option>
+              <option value="compact" selected>倾斜泳道标签（期刊紧凑）</option>
+            </select>
+            <label class="caption" for="footerLabel" style="margin-top:14px">底部说明 / 细胞系</label>
+            <input id="footerLabel" type="text" maxlength="40" value="Cell line" placeholder="例如 Cell line">
+            <div class="inline-actions">
+              <button class="button small" id="compactPreset" type="button">套用参考图样式</button>
+            </div>
+            <div class="range-field">
+              <label for="laneWidth">单泳道宽度<input id="laneWidth" type="range" min="28" max="130" value="40"></label>
+              <span class="range-value" id="laneWidthValue">40 px</span>
+            </div>
+            <p class="field-help">图中文字默认使用 Arial；泳道宽度与条带高度始终保持 1:1，条带高 1 cm 时，3 个泳道即宽 3 cm。</p>
+            <div class="range-field">
+              <label for="rowHeight">条带行高<input id="rowHeight" type="range" min="28" max="130" value="40"></label>
+              <span class="range-value" id="rowHeightValue">40 px</span>
+            </div>
+            <div class="range-field">
+              <label for="rowGap">行间距<input id="rowGap" type="range" min="0" max="48" value="7"></label>
+              <span class="range-value" id="rowGapValue">7 px</span>
+            </div>
+            <div class="range-field">
+              <label for="labelSize">标签字号<input id="labelSize" type="range" min="14" max="28" value="16"></label>
+              <span class="range-value" id="labelSizeValue">16 px</span>
+            </div>
+            <div class="toggle-list">
+              <label class="toggle"><input id="showMw" type="checkbox" checked> 显示分子量标签</label>
+              <label class="toggle"><input id="showLanes" type="checkbox" disabled> 显示泳道编号</label>
+              <label class="toggle"><input id="showBorder" type="checkbox" checked> 显示条带区域边框</label>
+            </div>
+          </section>
+        </aside>
+
+        <section class="preview-panel" aria-label="组图预览">
+          <div class="preview-toolbar">
+            <strong>Figure 预览</strong>
+            <span class="status" id="previewStatus">已在本地渲染</span>
+          </div>
+          <div class="canvas-stage">
+            <div class="figure-paper"><canvas id="figureCanvas" role="img" aria-label="Western blot 组图预览"></canvas></div>
+          </div>
+          <div class="export-bar">
+            <div class="export-stack">
+              <div class="export-actions">
+                <label class="export-setting" for="pngDpi">PNG 分辨率
+                  <select id="pngDpi"><option value="300" selected>300 DPI</option><option value="600">600 DPI</option></select>
+                </label>
+                <button class="button small primary" id="exportPng" type="button">导出 PNG</button>
+                <button class="button small" id="exportSvg" type="button">导出厘米 SVG</button>
+                <button class="button small" id="copyPng" type="button">复制图片</button>
+              </div>
+              <div class="project-actions">
+                <input id="projectFile" type="file" accept=".wb-project,application/json" hidden>
+                <button class="button small" id="saveProject" type="button">保存项目</button>
+                <button class="button small" id="openProject" type="button">打开项目</button>
+                <button class="button small" id="exportAudit" type="button">导出处理记录 CSV</button>
+                <span class="autosave-status" id="autosaveStatus" aria-live="polite">自动保存：正在准备</span>
+              </div>
+            </div>
+            <p class="export-note">条带高度按 1 cm 导出；紧凑样式每个泳道宽 1 cm。项目、图片和记录均只在本地处理。</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="section-head">
+        <p class="eyebrow">为科研组图而设计</p>
+        <h2>少做重复排版，多留时间给结果</h2>
+      </div>
+      <div class="features-grid">
+        <article class="feature-card"><div class="feature-icon">01</div><h3>裁剪时看得见</h3><p>在原图上重新框选条带区域，支持拖动选区，并即时预览亮度、对比度和反相效果。</p></article>
+        <article class="feature-card"><div class="feature-icon">02</div><h3>分组自动对齐</h3><p>每组样本数决定分组线宽度和泳道位置。改一次实验设计，整张图会同步重排。</p></article>
+        <article class="feature-card"><div class="feature-icon">03</div><h3>不锁死后期</h3><p>PNG 适合快速使用；SVG 保留可编辑文字和线条，可继续在 Illustrator 或 Inkscape 中处理。</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer><div><strong>FigureLab</strong> · WB 科研组图</div><div>浏览器原生运行 · 无需上传 · 无需安装</div></footer>
+
+  <dialog id="imageEditor" aria-labelledby="editorTitle" aria-describedby="editorHelp">
+    <div class="dialog-head">
+      <div><h2 id="editorTitle">编辑条带图</h2><p id="editorHelp" aria-live="polite">拖动画布重新框选；在选区内部拖动可整体移动。</p></div>
+      <button class="icon-button" id="closeEditor" type="button" aria-label="关闭编辑器">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="editor-stage"><canvas id="editorCanvas" width="900" height="480" tabindex="0" role="application" aria-label="条带裁剪编辑器；方向键移动选区，方括号键缩放选区，按住 Shift 每次调整 10 像素"></canvas><p class="sr-only" id="cropStatus" aria-live="polite"></p></div>
+      <div class="editor-controls">
+        <h3>图像调整</h3>
+        <div class="range-field"><label for="editBrightness">亮度<input id="editBrightness" type="range" min="50" max="160" value="100"></label><span class="range-value" id="editBrightnessValue">100%</span></div>
+        <div class="range-field"><label for="editContrast">对比度<input id="editContrast" type="range" min="50" max="200" value="100"></label><span class="range-value" id="editContrastValue">100%</span></div>
+        <div class="toggle-list"><label class="toggle"><input id="editInvert" type="checkbox"> 黑白反相</label></div>
+        <div class="inline-actions"><button class="button small" id="newCrop" type="button">重新框选</button><button class="button small" id="resetCrop" type="button">重置为最大比例区域</button></div>
+        <div class="editor-copy">
+          <label class="caption" for="copyFromRow">复制另一行的裁剪与图像调整</label>
+          <select id="copyFromRow"></select>
+          <button class="button small" id="copyRowSettings" type="button">复制到当前行</button>
+        </div>
+        <p class="field-help">调整只作用于导出的副本。为保持科研图像可追溯性，请避免过度增强。</p>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <p>黄色框按泳道数锁定为 N:1，虚线标出每个泳道；原图不被覆盖，所有调整可写入处理记录。</p>
+      <div class="dialog-actions"><button class="button small" id="cancelEditor" type="button">取消</button><button class="button small primary" id="applyEditor" type="button">应用调整</button></div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/static/wb-tiff.js"></script>
+  <script>
+    (() => {
+      "use strict";
+
+      const $ = (selector) => document.querySelector(selector);
+      const MAX_ROWS = 20;
+      const MAX_FILE_BYTES = 25 * 1024 * 1024;
+      const MAX_TOTAL_BYTES = 120 * 1024 * 1024;
+      const MAX_PIXELS = 50_000_000;
+      const MAX_PROJECT_FILE_BYTES = 162 * 1024 * 1024;
+      const PROJECT_KIND = "blotboard-project";
+      const PROJECT_VERSION = 1;
+      const PROJECT_DB = "blotboard-wb";
+      const PROJECT_STORE = "projects";
+      const AUTOSAVE_KEY = "current";
+      const newProjectId = () => typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const state = {
+        projectId: newProjectId(),
+        modifiedAt: new Date().toISOString(),
+        groups: [{ name: "Control", count: 1 }, { name: "Group 1", count: 1 }, { name: "Group 2", count: 1 }],
+        laneLabels: ["Control", "Group 1", "Group 2"],
+        rows: [],
+        layoutMode: "compact",
+        footerLabel: "Cell line",
+        laneWidth: 40,
+        rowHeight: 40,
+        rowGap: 7,
+        labelSize: 16,
+        showMw: true,
+        showLanes: false,
+        showBorder: true,
+        pngDpi: 300,
+        editor: null,
+        renderQueued: false,
+        demoLoaded: false,
+        dirty: false
+      };
+      let idCounter = 0;
+      let toastTimer;
+      let editorView;
+      let pointerAction;
+      let autosaveTimer;
+      let autosaveRevision = 0;
+      let autosavePaused = false;
+      let autosaveToken = null;
+      let projectDbPromise;
+      let pendingMutations = 0;
+
+      const figureCanvas = $("#figureCanvas");
+      const heroCanvas = $("#heroCanvas");
+      const editorCanvas = $("#editorCanvas");
+      const imageEditor = $("#imageEditor");
+      const measureCanvas = document.createElement("canvas");
+      const measureContext = measureCanvas.getContext("2d");
+
+      function markDirty(touchModified = true) {
+        state.dirty = true;
+        if (touchModified) state.modifiedAt = new Date().toISOString();
+        autosaveRevision += 1;
+        if (!autosavePaused) scheduleAutosave();
+      }
+
+      function beginImageMutation() {
+        pendingMutations += 1;
+        $(".workspace").inert = true;
+        $(".workspace").setAttribute("aria-busy", "true");
+      }
+
+      function endImageMutation() {
+        pendingMutations = Math.max(0, pendingMutations - 1);
+        if (!pendingMutations) {
+          $(".workspace").inert = false;
+          $(".workspace").removeAttribute("aria-busy");
+        }
+      }
+
+      function measuredWidth(text, size, weight = 700) {
+        measureContext.font = `${weight} ${size}px Arial, "Microsoft YaHei", sans-serif`;
+        return measureContext.measureText(String(text || "")).width;
+      }
+
+      function fittedLabel(text, maxWidth, size, weight = 700) {
+        let output = String(text || "");
+        let fontSize = size;
+        while (fontSize > 12 && measuredWidth(output, fontSize, weight) > maxWidth) fontSize -= 1;
+        while (output.length > 2 && measuredWidth(output, fontSize, weight) > maxWidth) output = output.slice(0, -2) + "…";
+        return { text: output, size: fontSize };
+      }
+
+      function toast(message) {
+        const el = $("#toast");
+        el.textContent = message;
+        el.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+      }
+
+      function totalSamples() {
+        return state.groups.reduce((sum, group) => sum + group.count, 0);
+      }
+
+      function clampCrop(row, crop) {
+        const width = row.image.naturalWidth;
+        const height = row.image.naturalHeight;
+        const value = crop && [crop.x, crop.y, crop.w, crop.h].every(Number.isFinite) && crop.w > 0 && crop.h > 0
+          ? crop
+          : { x: 0, y: 0, w: width, h: height };
+        const x = Math.max(0, Math.min(width, value.x));
+        const y = Math.max(0, Math.min(height, value.y));
+        const w = Math.max(0, Math.min(width - x, value.w));
+        const h = Math.max(0, Math.min(height - y, value.h));
+        return w > 0 && h > 0 ? { x, y, w, h } : { x: 0, y: 0, w: width, h: height };
+      }
+
+      function fitAspectCrop(row, crop) {
+        const bounded = clampCrop(row, crop);
+        const ratio = Math.max(1, totalSamples());
+        const centerX = bounded.x + bounded.w / 2;
+        const centerY = bounded.y + bounded.h / 2;
+        let width = bounded.w;
+        let height = bounded.h;
+        if (width / height > ratio) width = height * ratio;
+        else height = width / ratio;
+        const x = Math.max(0, Math.min(row.image.naturalWidth - width, centerX - width / 2));
+        const y = Math.max(0, Math.min(row.image.naturalHeight - height, centerY - height / 2));
+        return { x, y, w: width, h: height };
+      }
+
+      function maximumAspectCrop(row) {
+        return fitAspectCrop(row, { x: 0, y: 0, w: row.image.naturalWidth, h: row.image.naturalHeight });
+      }
+
+      function aspectCropFromAnchor(row, anchor, point, sx, sy) {
+        const ratio = Math.max(1, totalSamples());
+        const maxWidth = sx > 0 ? row.image.naturalWidth - anchor.x : anchor.x;
+        const maxHeight = sy > 0 ? row.image.naturalHeight - anchor.y : anchor.y;
+        const limitHeight = Math.min(maxHeight, maxWidth / ratio);
+        if (limitHeight <= 0) return null;
+        const wantedHeight = Math.max(0, sy * (point.y - anchor.y), sx * (point.x - anchor.x) / ratio);
+        const height = Math.min(limitHeight, Math.max(Math.min(2, limitHeight), wantedHeight));
+        const width = height * ratio;
+        return { x: sx > 0 ? anchor.x : anchor.x - width, y: sy > 0 ? anchor.y : anchor.y - height, w: width, h: height };
+      }
+
+      function defaultLaneLabels(groups) {
+        return groups.flatMap((group) => Array.from({ length: group.count }, (_, index) => group.count === 1 ? group.name : `${group.name}-${index + 1}`));
+      }
+
+      function parseLaneLabels(value, groups) {
+        const labels = value.replace(/[，；;]/g, ",").split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+        if (!labels.length) return defaultLaneLabels(groups);
+        const expected = groups.reduce((sum, group) => sum + group.count, 0);
+        if (labels.length !== expected) throw new Error(`泳道标签需要 ${expected} 个，当前为 ${labels.length} 个`);
+        if (labels.some((label) => label.length > 40)) throw new Error("单个泳道标签最多 40 个字符");
+        return labels;
+      }
+
+      function laneLabelsToText(labels) {
+        return labels.join(", ");
+      }
+
+      function resolvedLaneLabels() {
+        return state.laneLabels.length === totalSamples() ? state.laneLabels : defaultLaneLabels(state.groups);
+      }
+
+      function syncLayoutControls() {
+        $("#layoutMode").value = state.layoutMode;
+        $("#footerLabel").value = state.footerLabel;
+        [["laneWidth", "laneWidthValue", state.laneWidth], ["rowHeight", "rowHeightValue", state.rowHeight], ["rowGap", "rowGapValue", state.rowGap], ["labelSize", "labelSizeValue", state.labelSize]].forEach(([inputId, valueId, value]) => {
+          $("#" + inputId).value = value;
+          $("#" + valueId).textContent = `${value} px`;
+        });
+        $("#showMw").checked = state.showMw;
+        $("#showLanes").checked = state.showLanes;
+        $("#showBorder").checked = state.showBorder;
+        $("#pngDpi").value = String(state.pngDpi);
+        syncLaneToggleAvailability();
+      }
+
+      function syncLaneToggleAvailability() {
+        const input = $("#showLanes");
+        const unavailable = state.layoutMode === "compact" && Boolean(state.footerLabel.trim());
+        input.disabled = unavailable;
+        input.closest(".toggle").title = unavailable ? "紧凑样式显示底部说明时不显示泳道编号" : "";
+      }
+
+      function parseGroups(value) {
+        const chunks = value.replace(/[，；;]/g, ",").split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
+        if (!chunks.length) throw new Error("请至少输入一个分组");
+        const groups = chunks.map((chunk) => {
+          const match = chunk.match(/^(.+?)(?:\s*[×xX*:：]\s*|\s+)(\d+)$/);
+          if (!match) throw new Error(`无法识别“${chunk}”，请使用“名称 × 数量”`);
+          const count = Number(match[2]);
+          if (!count || count > 24) throw new Error(`“${chunk}”的样本数需要在 1–24 之间`);
+          const name = match[1].trim();
+          if (name.length > 40) throw new Error("单个分组名称最多 40 个字符");
+          return { name, count };
+        });
+        if (groups.reduce((sum, group) => sum + group.count, 0) > 24) throw new Error("总样本数最多为 24");
+        return groups;
+      }
+
+      function groupsToText(groups) {
+        return groups.map((group) => `${group.name} × ${group.count}`).join(", ");
+      }
+
+      function renderGroupSummary() {
+        const summary = $("#groupSummary");
+        summary.replaceChildren(...state.groups.map((group) => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = `${group.name} · ${group.count}`;
+          return chip;
+        }));
+        $("#heroSamples").textContent = `${totalSamples()} 个样本`;
+      }
+
+      function loadImage(src) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error("浏览器无法读取这张图片"));
+          image.src = src;
+        });
+      }
+
+      async function decodeTiffImage(file) {
+        if (!window.WBTiff) throw new Error("TIFF 解码器未加载");
+        const decoded = window.WBTiff.decode(await file.arrayBuffer(), MAX_PIXELS);
+        const canvas = document.createElement("canvas");
+        canvas.width = decoded.width;
+        canvas.height = decoded.height;
+        const ctx = canvas.getContext("2d");
+        const imageData = ctx.createImageData(decoded.width, decoded.height);
+        for (let source = 0, target = 0; source < decoded.pixels.length; source += 1, target += 4) {
+          const value = decoded.pixels[source];
+          imageData.data[target] = value;
+          imageData.data[target + 1] = value;
+          imageData.data[target + 2] = value;
+          imageData.data[target + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+        if (!blob) throw new Error("TIFF 预览生成失败");
+        const src = URL.createObjectURL(blob);
+        try {
+          return { src, image: await loadImage(src) };
+        } catch (error) {
+          URL.revokeObjectURL(src);
+          throw error;
+        }
+      }
+
+      function usedUploadBytes(excludingId) {
+        return state.rows.reduce((sum, row) => sum + (row.id === excludingId ? 0 : row.bytes || 0), 0);
+      }
+
+      async function sha256Blob(blob) {
+        if (!window.crypto?.subtle) return "";
+        try {
+          const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+          return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+        } catch {
+          return "";
+        }
+      }
+
+      async function rowFromFile(file, replacingId, skipTotalLimit = false) {
+        const isTiff = /\.tiff?$/i.test(file.name) || file.type === "image/tiff";
+        if (!/\.(png|jpe?g|webp|bmp|tiff?)$/i.test(file.name) && !/^image\/(png|jpeg|webp|bmp|tiff)$/i.test(file.type)) {
+          throw new Error(`${file.name}：暂不支持该格式，请先转为 PNG 或 JPG`);
+        }
+        if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name}：单张图片不能超过 25 MB`);
+        if (!skipTotalLimit && usedUploadBytes(replacingId) + file.size > MAX_TOTAL_BYTES) throw new Error("当前项目图片总量不能超过 120 MB");
+        let src;
+        let image;
+        try {
+          if (isTiff) ({ src, image } = await decodeTiffImage(file));
+          else {
+            src = URL.createObjectURL(file);
+            image = await loadImage(src);
+          }
+          if (image.naturalWidth * image.naturalHeight > MAX_PIXELS) throw new Error(`${file.name}：图片像素过大，请控制在 5000 万像素以内`);
+        } catch (error) {
+          if (src) URL.revokeObjectURL(src);
+          throw error;
+        }
+        const row = {
+          id: ++idCounter,
+          name: file.name.replace(/\.[^.]+$/, "") || `Protein ${idCounter}`,
+          mw: "",
+          sourceFile: file,
+          sourceName: file.name,
+          sourceType: file.type || (isTiff ? "image/tiff" : "application/octet-stream"),
+          sourceBytes: file.size,
+          sourceLastModified: file.lastModified || 0,
+          sourceSha256: await sha256Blob(file),
+          src,
+          image,
+          crop: null,
+          brightness: 100,
+          contrast: 100,
+          invert: false,
+          bytes: file.size,
+          objectUrl: src
+        };
+        row.crop = maximumAspectCrop(row);
+        return row;
+      }
+
+      function blankRow() {
+        return { id: ++idCounter, name: `Protein ${idCounter}`, mw: "", sourceFile: null, sourceName: "", sourceType: "", sourceBytes: 0, sourceLastModified: 0, sourceSha256: "", src: "", image: null, crop: null, brightness: 100, contrast: 100, invert: false, bytes: 0, objectUrl: null };
+      }
+
+      function demoStrip(intensities, seed) {
+        const width = intensities.length * 72;
+        const height = 76;
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#e8e6dc";
+        ctx.fillRect(0, 0, width, height);
+        let random = seed;
+        const rand = () => {
+          random = (random * 1664525 + 1013904223) >>> 0;
+          return random / 4294967296;
+        };
+        const imageData = ctx.getImageData(0, 0, width, height);
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          const noise = Math.round((rand() - .5) * 10);
+          imageData.data[i] = Math.max(0, Math.min(255, imageData.data[i] + noise));
+          imageData.data[i + 1] = Math.max(0, Math.min(255, imageData.data[i + 1] + noise));
+          imageData.data[i + 2] = Math.max(0, Math.min(255, imageData.data[i + 2] + noise));
+        }
+        ctx.putImageData(imageData, 0, 0);
+        const laneWidth = width / intensities.length;
+        ctx.filter = "blur(3px)";
+        intensities.forEach((intensity, index) => {
+          const x = laneWidth * (index + .5) + (rand() - .5) * 8;
+          const y = height * .5 + (rand() - .5) * 5;
+          const rx = laneWidth * (.27 + rand() * .035);
+          const ry = 9 + rand() * 4;
+          ctx.beginPath();
+          ctx.ellipse(x, y, rx, ry, (rand() - .5) * .07, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(24, 24, 20, ${.25 + intensity * .7})`;
+          ctx.fill();
+        });
+        ctx.filter = "none";
+        return canvas.toDataURL("image/png");
+      }
+
+      async function loadDemo(silent = false) {
+        if (pendingMutations) {
+          if (!silent) toast("当前图片仍在处理中，请稍后再恢复示例");
+          return;
+        }
+        beginImageMutation();
+        try {
+        state.rows.forEach((row) => { if (row.objectUrl) URL.revokeObjectURL(row.objectUrl); });
+        state.projectId = newProjectId();
+        state.modifiedAt = new Date().toISOString();
+        state.groups = [{ name: "Control", count: 1 }, { name: "Group 1", count: 1 }, { name: "Group 2", count: 1 }];
+        state.laneLabels = defaultLaneLabels(state.groups);
+        state.layoutMode = "compact";
+        state.footerLabel = "Cell line";
+        state.laneWidth = 40;
+        state.rowHeight = 40;
+        state.rowGap = 7;
+        state.labelSize = 16;
+        state.showMw = true;
+        state.showLanes = false;
+        state.showBorder = true;
+        const definitions = [
+          ["Protein A", "100 KD", [.88, .72, .63], 21],
+          ["Protein B", "40 KD", [.68, .72, .70], 47]
+        ];
+        state.rows = await Promise.all(definitions.map(async ([name, mw, intensities, seed]) => {
+          const src = demoStrip(intensities, seed);
+          const image = await loadImage(src);
+          const sourceName = `${name.toLowerCase().replace(/\s+/g, "-")}-example.png`;
+          const sourceBlob = dataUrlToBlob(src);
+          const sourceFile = new File([sourceBlob], sourceName, { type: "image/png", lastModified: 0 });
+          const row = { id: ++idCounter, name, mw, sourceFile, sourceName, sourceType: "image/png", sourceBytes: sourceFile.size, sourceLastModified: 0, sourceSha256: await sha256Blob(sourceFile), src, image, crop: null, brightness: 100, contrast: 110, invert: false, bytes: sourceFile.size, objectUrl: null };
+          row.crop = maximumAspectCrop(row);
+          return row;
+        }));
+        $("#groupInput").value = groupsToText(state.groups);
+        $("#laneLabelInput").value = "";
+        syncLayoutControls();
+        renderGroupSummary();
+        renderRows();
+        requestRender();
+        state.demoLoaded = true;
+        state.dirty = false;
+        if (!silent) {
+          markDirty();
+          toast("已恢复示例数据");
+        }
+        } finally {
+          endImageMutation();
+        }
+      }
+
+      function makeButton(label, className, action, title) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = className;
+        button.textContent = label;
+        if (title) button.title = title;
+        button.addEventListener("click", action);
+        return button;
+      }
+
+      function renderRows() {
+        const list = $("#rowList");
+        list.replaceChildren();
+        state.rows.forEach((row, index) => {
+          const card = document.createElement("div");
+          card.className = "protein-row";
+
+          const top = document.createElement("div");
+          top.className = "protein-row-top";
+          const thumb = document.createElement("div");
+          thumb.className = "row-thumb";
+          if (row.src) {
+            const img = document.createElement("img");
+            img.src = row.src;
+            img.alt = "";
+            thumb.append(img);
+          } else {
+            thumb.textContent = "空行";
+          }
+          const name = document.createElement("input");
+          name.type = "text";
+          name.value = row.name;
+          name.maxLength = 40;
+          name.setAttribute("aria-label", `第 ${index + 1} 行蛋白名称`);
+          name.addEventListener("input", () => { row.name = name.value; state.demoLoaded = false; markDirty(); requestRender(); });
+          const mw = document.createElement("input");
+          mw.type = "text";
+          mw.value = row.mw;
+          mw.placeholder = "kDa";
+          mw.maxLength = 20;
+          mw.setAttribute("aria-label", `第 ${index + 1} 行分子量`);
+          mw.addEventListener("input", () => { row.mw = mw.value; state.demoLoaded = false; markDirty(); requestRender(); });
+          top.append(thumb, name, mw);
+
+          const actions = document.createElement("div");
+          actions.className = "row-actions";
+          const upload = makeButton(row.image ? "替换" : "上传", "text-button", () => chooseReplacement(row.id));
+          const edit = makeButton("裁剪/调图", "text-button", () => openEditor(row.id));
+          edit.disabled = !row.image;
+          const up = makeButton("↑", "icon-button", () => moveRow(index, -1), "上移");
+          up.disabled = index === 0;
+          const down = makeButton("↓", "icon-button", () => moveRow(index, 1), "下移");
+          down.disabled = index === state.rows.length - 1;
+          const remove = makeButton("删除", "text-button danger", () => removeRow(row.id));
+          actions.append(upload, edit, up, down, remove);
+          card.append(top, actions);
+          list.append(card);
+        });
+        $("#heroRows").textContent = `${state.rows.length} 个蛋白`;
+      }
+
+      function moveRow(index, delta) {
+        const next = index + delta;
+        if (next < 0 || next >= state.rows.length) return;
+        [state.rows[index], state.rows[next]] = [state.rows[next], state.rows[index]];
+        state.demoLoaded = false;
+        markDirty();
+        renderRows();
+        requestRender();
+      }
+
+      function removeRow(id) {
+        const row = state.rows.find((item) => item.id === id);
+        if (!row || !confirm(`删除“${row.name || "未命名蛋白"}”这一行？`)) return;
+        if (row.objectUrl) URL.revokeObjectURL(row.objectUrl);
+        state.rows = state.rows.filter((row) => row.id !== id);
+        state.demoLoaded = false;
+        markDirty();
+        renderRows();
+        requestRender();
+      }
+
+      function chooseReplacement(id) {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,image/png,image/jpeg,image/webp,image/bmp,image/tiff";
+        input.addEventListener("change", async () => {
+          if (!input.files[0]) return;
+          if (pendingMutations) return toast("当前图片仍在处理中，请稍后再替换");
+          beginImageMutation();
+          try {
+            const replacement = await rowFromFile(input.files[0], id);
+            const index = state.rows.findIndex((row) => row.id === id);
+            if (index < 0) {
+              URL.revokeObjectURL(replacement.objectUrl);
+              return;
+            }
+            if (state.rows[index].objectUrl) URL.revokeObjectURL(state.rows[index].objectUrl);
+            replacement.id = id;
+            replacement.name = state.rows[index].name || replacement.name;
+            replacement.mw = state.rows[index].mw;
+            state.rows[index] = replacement;
+            state.demoLoaded = false;
+            markDirty();
+            renderRows();
+            requestRender();
+          } catch (error) { toast(error.message); }
+          finally { endImageMutation(); }
+        });
+        input.click();
+      }
+
+      async function addFiles(files) {
+        const incoming = [...files];
+        if (!incoming.length) return;
+        if (pendingMutations) return toast("当前图片仍在处理中，请等待完成后再上传");
+        beginImageMutation();
+        try {
+        let added = 0;
+        for (const file of incoming) {
+          if (state.rows.length >= MAX_ROWS) {
+            toast(`每个图组最多支持 ${MAX_ROWS} 行蛋白`);
+            break;
+          }
+          try {
+            const row = await rowFromFile(file);
+            if (state.demoLoaded) {
+              state.rows.forEach((item) => { if (item.objectUrl) URL.revokeObjectURL(item.objectUrl); });
+              state.rows = [];
+              state.demoLoaded = false;
+            }
+            state.rows.push(row);
+            added += 1;
+          } catch (error) { toast(error.message); }
+        }
+        if (added) {
+          markDirty();
+          renderRows();
+          requestRender();
+          toast(`已添加 ${added} 张条带图`);
+        }
+        } finally {
+          endImageMutation();
+        }
+      }
+
+      function geometry() {
+        const compact = state.layoutMode === "compact";
+        const longestName = Math.max(0, ...state.rows.map((row) => measuredWidth(row.name, state.labelSize)));
+        const mwSize = compact ? state.labelSize : Math.max(12, state.labelSize - 3);
+        const longestMw = Math.max(0, ...state.rows.map((row) => measuredWidth(row.mw, mwSize, compact ? 700 : 500)));
+        const left = Math.min(compact ? 240 : 360, Math.max(compact ? 105 : 166, Math.ceil(longestName + (compact ? 28 : 34))));
+        const right = state.showMw ? Math.min(compact ? 190 : 220, Math.max(compact ? 83 : 116, Math.ceil(longestMw + (compact ? 30 : 34)))) : 24;
+        const longestLaneLabel = Math.max(0, ...resolvedLaneLabels().map((label) => measuredWidth(label, state.labelSize)));
+        const bandWidth = totalSamples() * state.rowHeight;
+        const width = left + bandWidth + right;
+        const labelAngle = compact ? Math.max(
+          Math.PI / 4,
+          Math.acos(Math.min(1, Math.max(1, state.laneWidth - 4) / Math.max(1, longestLaneLabel))),
+          Math.asin(Math.min(1, (state.labelSize + 4) / state.laneWidth))
+        ) : 0;
+        const top = compact ? Math.max(72, Math.ceil(longestLaneLabel * Math.sin(labelAngle) + state.labelSize + 18)) : 82;
+        const rowCount = Math.max(1, state.rows.length);
+        const contentBottom = top + rowCount * state.rowHeight + Math.max(0, rowCount - 1) * state.rowGap;
+        const footerLineY = contentBottom + 14;
+        const footerLabelY = footerLineY + 23;
+        const bottom = compact && state.footerLabel.trim() ? 86 : (state.showLanes ? 55 : 28);
+        const height = contentBottom + bottom;
+        return { width, height, left, right, top, bottom, bandWidth, contentBottom, footerLineY, footerLabelY, labelAngle };
+      }
+
+      function drawContainedImage(ctx, row, x, y, width, height) {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(x, y, width, height);
+        if (!row.image || !row.crop) return false;
+        const crop = fitAspectCrop(row, row.crop);
+        const scale = width / crop.w;
+        const drawHeight = crop.h * scale;
+        const drawY = y + (height - drawHeight) / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, width, height);
+        ctx.clip();
+        ctx.filter = `brightness(${row.brightness}%) contrast(${row.contrast}%) invert(${row.invert ? 100 : 0}%)`;
+        ctx.drawImage(row.image, crop.x, crop.y, crop.w, crop.h, x, drawY, width, drawHeight);
+        ctx.restore();
+        return true;
+      }
+
+      function paintFigure(canvas, pixelScale = 1) {
+        const g = geometry();
+        canvas.width = Math.round(g.width * pixelScale);
+        canvas.height = Math.round(g.height * pixelScale);
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.setTransform(pixelScale, 0, 0, pixelScale, 0, 0);
+
+        const samples = Math.max(1, totalSamples());
+        const laneWidth = g.bandWidth / samples;
+        const compact = state.layoutMode === "compact";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#111827";
+        if (compact) {
+          resolvedLaneLabels().forEach((value, lane) => {
+            ctx.save();
+            ctx.translate(g.left + lane * laneWidth + Math.min(6, laneWidth * .15), g.top - 8);
+            ctx.rotate(-g.labelAngle);
+            ctx.textAlign = "left";
+            ctx.font = `700 ${state.labelSize}px Arial, "Microsoft YaHei", sans-serif`;
+            ctx.fillText(value, 0, 0);
+            ctx.restore();
+          });
+        } else {
+          let laneOffset = 0;
+          ctx.font = `700 ${state.labelSize}px Arial, "Microsoft YaHei", sans-serif`;
+          state.groups.forEach((group) => {
+            const start = g.left + laneOffset * laneWidth;
+            const end = start + group.count * laneWidth;
+            const label = fittedLabel(group.name, Math.max(18, end - start - 18), state.labelSize);
+            ctx.font = `700 ${label.size}px Arial, "Microsoft YaHei", sans-serif`;
+            ctx.fillText(label.text, (start + end) / 2, 23);
+            ctx.strokeStyle = "#172033";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(start + Math.min(9, (end - start) * .08), 49);
+            ctx.lineTo(end - Math.min(9, (end - start) * .08), 49);
+            ctx.stroke();
+            laneOffset += group.count;
+          });
+        }
+
+        const rows = state.rows.length ? state.rows : [{ name: "Protein 1", mw: "", image: null, crop: null }];
+        rows.forEach((row, index) => {
+          const y = g.top + index * (state.rowHeight + state.rowGap);
+          ctx.fillStyle = "#111827";
+          const proteinLabel = fittedLabel(row.name || `Protein ${index + 1}`, g.left - 30, state.labelSize);
+          ctx.font = `700 ${proteinLabel.size}px Arial, "Microsoft YaHei", sans-serif`;
+          ctx.textAlign = "right";
+          ctx.fillText(proteinLabel.text, g.left - 18, y + state.rowHeight / 2);
+          if (state.showMw && row.mw) {
+            ctx.fillStyle = compact ? "#111827" : "#657187";
+            const mwLabel = fittedLabel(row.mw || "", g.right - 26, compact ? state.labelSize : Math.max(12, state.labelSize - 3), compact ? 700 : 500);
+            ctx.font = `${compact ? 700 : 500} ${mwLabel.size}px Arial, "Microsoft YaHei", sans-serif`;
+            ctx.textAlign = "left";
+            if (compact) {
+              ctx.strokeStyle = "#111827";
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(g.left + g.bandWidth, y + state.rowHeight / 2);
+              ctx.lineTo(g.left + g.bandWidth + 18, y + state.rowHeight / 2);
+              ctx.stroke();
+            }
+            ctx.fillText(mwLabel.text, g.left + g.bandWidth + (compact ? 24 : 17), y + state.rowHeight / 2);
+          }
+          const hasImage = drawContainedImage(ctx, row, g.left, y, g.bandWidth, state.rowHeight);
+          if (!hasImage) {
+            ctx.fillStyle = "#f0f3f7";
+            ctx.fillRect(g.left, y, g.bandWidth, state.rowHeight);
+            ctx.fillStyle = "#9aa6b7";
+            ctx.font = "500 14px Arial, \"Microsoft YaHei\", sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("请上传这一行条带图", g.left + g.bandWidth / 2, y + state.rowHeight / 2);
+          }
+          if (state.showBorder) {
+            ctx.strokeStyle = compact ? "#374151" : "#9ca8b9";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(g.left + .5, y + .5, g.bandWidth - 1, state.rowHeight - 1);
+          }
+        });
+
+        if (compact && state.footerLabel.trim()) {
+          ctx.strokeStyle = "#111827";
+          ctx.lineWidth = 4;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(g.left + 1, g.footerLineY);
+          ctx.lineTo(g.left + g.bandWidth - 1, g.footerLineY);
+          ctx.stroke();
+          ctx.lineCap = "butt";
+          const footer = fittedLabel(state.footerLabel.trim(), g.bandWidth, state.labelSize, 700);
+          ctx.fillStyle = "#111827";
+          ctx.font = `700 ${footer.size}px Arial, "Microsoft YaHei", sans-serif`;
+          ctx.textAlign = "center";
+          ctx.fillText(footer.text, g.left + g.bandWidth / 2, g.footerLabelY);
+        } else if (state.showLanes) {
+          const y = g.height - 19;
+          ctx.fillStyle = "#657187";
+          ctx.font = "500 12px Arial, sans-serif";
+          ctx.textAlign = "center";
+          for (let lane = 0; lane < samples; lane += 1) ctx.fillText(String(lane + 1), g.left + (lane + .5) * laneWidth, y);
+        }
+        return g;
+      }
+
+      function requestRender() {
+        if (state.renderQueued) return;
+        state.renderQueued = true;
+        requestAnimationFrame(() => {
+          state.renderQueued = false;
+          const dpr = Math.min(2, window.devicePixelRatio || 1);
+          const g = paintFigure(figureCanvas, dpr);
+          const wide = state.layoutMode !== "compact";
+          figureCanvas.classList.toggle("is-wide", wide);
+          figureCanvas.closest(".figure-paper").classList.toggle("is-wide", wide);
+          figureCanvas.style.width = wide ? "100%" : `${g.width}px`;
+          figureCanvas.style.aspectRatio = `${g.width} / ${g.height}`;
+          const heroG = paintFigure(heroCanvas, 1);
+          heroCanvas.style.aspectRatio = `${heroG.width} / ${heroG.height}`;
+          figureCanvas.setAttribute("aria-label", `Western blot 组图预览：${state.rows.length} 行蛋白，${totalSamples()} 个泳道`);
+          $("#previewStatus").textContent = `${state.rows.length} 行 · ${totalSamples()} 个样本 · 已在本地渲染`;
+        });
+      }
+
+      function artifactStem() {
+        const timestamp = state.modifiedAt.replace(/\D/g, "").slice(0, 17);
+        return `WB-${state.projectId.slice(0, 8)}-${timestamp}`;
+      }
+
+      function fileName(extension, suffix = "") {
+        return `${artifactStem()}${suffix ? `-${suffix}` : ""}.${extension}`;
+      }
+
+      function downloadBlob(blob, name) {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = name;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      }
+
+      function ensureExportable() {
+        if (!state.rows.length) {
+          toast("请先添加至少一行条带图");
+          return false;
+        }
+        const missing = state.rows.find((row) => !row.image);
+        if (missing) {
+          toast(`“${missing.name || "未命名蛋白"}”尚未上传条带图`);
+          return false;
+        }
+        return true;
+      }
+
+      function renderScale(dpi) {
+        return dpi / 2.54 / state.rowHeight;
+      }
+
+      let pngCrcTable;
+      function pngCrc32(bytes) {
+        if (!pngCrcTable) {
+          pngCrcTable = new Uint32Array(256);
+          for (let index = 0; index < 256; index += 1) {
+            let value = index;
+            for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ ((value & 1) ? 0xedb88320 : 0);
+            pngCrcTable[index] = value >>> 0;
+          }
+        }
+        let crc = 0xffffffff;
+        for (const byte of bytes) crc = pngCrcTable[(crc ^ byte) & 255] ^ (crc >>> 8);
+        return (crc ^ 0xffffffff) >>> 0;
+      }
+
+      function pngResolutionChunk(dpi) {
+        const type = new TextEncoder().encode("pHYs");
+        const data = new Uint8Array(9);
+        const ppm = Math.round(dpi / .0254);
+        const dataView = new DataView(data.buffer);
+        dataView.setUint32(0, ppm);
+        dataView.setUint32(4, ppm);
+        data[8] = 1;
+        const chunk = new Uint8Array(12 + data.length);
+        const view = new DataView(chunk.buffer);
+        view.setUint32(0, data.length);
+        chunk.set(type, 4);
+        chunk.set(data, 8);
+        view.setUint32(8 + data.length, pngCrc32(chunk.subarray(4, 8 + data.length)));
+        return chunk;
+      }
+
+      async function withPngDpi(blob, dpi) {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+        if (bytes.length < 33 || !signature.every((value, index) => bytes[index] === value)) throw new Error("PNG 数据无效");
+        const output = [bytes.slice(0, 8)];
+        let offset = 8;
+        let inserted = false;
+        while (offset + 12 <= bytes.length) {
+          const length = new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
+          const end = offset + length + 12;
+          if (end > bytes.length) throw new Error("PNG 数据不完整");
+          const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8));
+          if (type !== "pHYs") output.push(bytes.slice(offset, end));
+          if (type === "IHDR" && !inserted) {
+            output.push(pngResolutionChunk(dpi));
+            inserted = true;
+          }
+          offset = end;
+        }
+        if (!inserted || offset !== bytes.length) throw new Error("PNG 数据不完整");
+        return new Blob(output, { type: "image/png" });
+      }
+
+      async function exportPng() {
+        if (!ensureExportable()) return;
+        const dpi = Number($("#pngDpi").value) === 600 ? 600 : 300;
+        state.pngDpi = dpi;
+        try {
+          const canvas = document.createElement("canvas");
+          paintFigure(canvas, renderScale(dpi));
+          const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+          if (!blob) throw new Error("浏览器无法生成这张 PNG");
+          const physicalPng = await withPngDpi(blob, dpi);
+          downloadBlob(physicalPng, fileName("png", `${dpi}dpi`));
+          toast(`${dpi} DPI PNG 已按厘米尺寸导出`);
+        } catch (error) {
+          toast(`PNG 生成失败：${error.message}`);
+        }
+      }
+
+      function xml(value) {
+        return String(value).replace(/[&<>\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&apos;" }[char]));
+      }
+
+      function rowPng(row, width, height, scale = 3) {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(width * scale));
+        canvas.height = Math.max(1, Math.round(height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        drawContainedImage(ctx, row, 0, 0, width, height);
+        return canvas.toDataURL("image/png");
+      }
+
+      function exportSvg() {
+        if (!ensureExportable()) return;
+        const g = geometry();
+        const samples = Math.max(1, totalSamples());
+        const laneWidth = g.bandWidth / samples;
+        const widthCm = g.width / state.rowHeight;
+        const heightCm = g.height / state.rowHeight;
+        const parts = [`<svg xmlns="http://www.w3.org/2000/svg" width="${widthCm.toFixed(4)}cm" height="${heightCm.toFixed(4)}cm" viewBox="0 0 ${g.width} ${g.height}">`, `<rect width="100%" height="100%" fill="white"/>`];
+        const compact = state.layoutMode === "compact";
+        if (compact) {
+          resolvedLaneLabels().forEach((value, lane) => {
+            const x = g.left + lane * laneWidth + Math.min(6, laneWidth * .15);
+            const y = g.top - 8;
+            parts.push(`<text transform="translate(${x} ${y}) rotate(${-g.labelAngle * 180 / Math.PI})" text-anchor="start" dominant-baseline="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="${state.labelSize}" font-weight="700" fill="#111827">${xml(value)}</text>`);
+          });
+        } else {
+          let laneOffset = 0;
+          state.groups.forEach((group) => {
+            const start = g.left + laneOffset * laneWidth;
+            const end = start + group.count * laneWidth;
+            const label = fittedLabel(group.name, Math.max(18, end - start - 18), state.labelSize);
+            parts.push(`<text x="${(start + end) / 2}" y="29" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="${label.size}" font-weight="700" fill="#111827">${xml(label.text)}</text>`);
+            parts.push(`<line x1="${start + Math.min(9, (end - start) * .08)}" y1="49" x2="${end - Math.min(9, (end - start) * .08)}" y2="49" stroke="#172033" stroke-width="2"/>`);
+            laneOffset += group.count;
+          });
+        }
+        const rows = state.rows.length ? state.rows : [];
+        rows.forEach((row, index) => {
+          const y = g.top + index * (state.rowHeight + state.rowGap);
+          const proteinLabel = fittedLabel(row.name || `Protein ${index + 1}`, g.left - 30, state.labelSize);
+          parts.push(`<text x="${g.left - 18}" y="${y + state.rowHeight / 2}" dominant-baseline="middle" text-anchor="end" font-family="Arial, Microsoft YaHei, sans-serif" font-size="${proteinLabel.size}" font-weight="700" fill="#111827">${xml(proteinLabel.text)}</text>`);
+          if (state.showMw && row.mw) {
+            const mwLabel = fittedLabel(row.mw, g.right - 26, compact ? state.labelSize : Math.max(12, state.labelSize - 3), compact ? 700 : 500);
+            if (compact) parts.push(`<line x1="${g.left + g.bandWidth}" y1="${y + state.rowHeight / 2}" x2="${g.left + g.bandWidth + 18}" y2="${y + state.rowHeight / 2}" stroke="#111827"/>`);
+            parts.push(`<text x="${g.left + g.bandWidth + (compact ? 24 : 17)}" y="${y + state.rowHeight / 2}" dominant-baseline="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="${mwLabel.size}" font-weight="${compact ? 700 : 500}" fill="${compact ? "#111827" : "#657187"}">${xml(mwLabel.text)}</text>`);
+          }
+          if (row.image) {
+            parts.push(`<image href="${rowPng(row, g.bandWidth, state.rowHeight, renderScale(600))}" x="${g.left}" y="${y}" width="${g.bandWidth}" height="${state.rowHeight}"/>`);
+          } else {
+            parts.push(`<rect x="${g.left}" y="${y}" width="${g.bandWidth}" height="${state.rowHeight}" fill="#f0f3f7"/>`);
+          }
+          if (state.showBorder) parts.push(`<rect x="${g.left + .5}" y="${y + .5}" width="${g.bandWidth - 1}" height="${state.rowHeight - 1}" fill="none" stroke="${compact ? "#374151" : "#9ca8b9"}"/>`);
+        });
+        if (compact && state.footerLabel.trim()) {
+          const footer = fittedLabel(state.footerLabel.trim(), g.bandWidth, state.labelSize, 700);
+          parts.push(`<line x1="${g.left + 1}" y1="${g.footerLineY}" x2="${g.left + g.bandWidth - 1}" y2="${g.footerLineY}" stroke="#111827" stroke-width="4" stroke-linecap="round"/>`);
+          parts.push(`<text x="${g.left + g.bandWidth / 2}" y="${g.footerLabelY}" dominant-baseline="middle" text-anchor="middle" font-family="Arial, Microsoft YaHei, sans-serif" font-size="${footer.size}" font-weight="700" fill="#111827">${xml(footer.text)}</text>`);
+        } else if (state.showLanes) {
+          for (let lane = 0; lane < samples; lane += 1) parts.push(`<text x="${g.left + (lane + .5) * laneWidth}" y="${g.height - 15}" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#657187">${lane + 1}</text>`);
+        }
+        parts.push("</svg>");
+        downloadBlob(new Blob([parts.join("")], { type: "image/svg+xml;charset=utf-8" }), fileName("svg"));
+        toast("可编辑 SVG 已按厘米尺寸导出");
+      }
+
+      async function copyPng() {
+        if (!ensureExportable()) return;
+        if (!navigator.clipboard || typeof ClipboardItem === "undefined") return toast("当前浏览器不支持直接复制，请使用 PNG 导出");
+        const canvas = document.createElement("canvas");
+        paintFigure(canvas, 2);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+        if (!blob) return toast("图片生成失败");
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          toast("组图已复制到剪贴板");
+        } catch {
+          toast("浏览器阻止了复制，请使用 PNG 导出");
+        }
+      }
+
+      function setAutosaveStatus(message) {
+        $("#autosaveStatus").textContent = `自动保存：${message}`;
+      }
+
+      function openProjectDb() {
+        if (projectDbPromise) return projectDbPromise;
+        let blocked = false;
+        const pending = new Promise((resolve, reject) => {
+          if (!window.indexedDB) return reject(new Error("浏览器未提供 IndexedDB"));
+          const request = indexedDB.open(PROJECT_DB, 1);
+          request.onupgradeneeded = () => {
+            if (!request.result.objectStoreNames.contains(PROJECT_STORE)) request.result.createObjectStore(PROJECT_STORE, { keyPath: "key" });
+          };
+          request.onsuccess = () => {
+            if (blocked) return request.result.close();
+            request.result.onversionchange = () => {
+              request.result.close();
+              projectDbPromise = null;
+            };
+            resolve(request.result);
+          };
+          request.onerror = () => reject(request.error || new Error("无法打开本地项目库"));
+          request.onblocked = () => {
+            blocked = true;
+            reject(new Error("本地项目库被其他页面占用"));
+          };
+        });
+        projectDbPromise = pending.catch((error) => {
+          projectDbPromise = null;
+          throw error;
+        });
+        return projectDbPromise;
+      }
+
+      async function putAutosave(snapshot) {
+        const db = await openProjectDb();
+        const expectedToken = autosaveToken;
+        const nextToken = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction(PROJECT_STORE, "readwrite");
+          const store = transaction.objectStore(PROJECT_STORE);
+          const request = store.get(AUTOSAVE_KEY);
+          let failure;
+          request.onsuccess = () => {
+            const currentToken = request.result?.token || null;
+            if (currentToken !== expectedToken) {
+              failure = new Error("另一个标签页已更新本机项目，本页未覆盖它");
+              failure.code = "AUTOSAVE_CONFLICT";
+              transaction.abort();
+              return;
+            }
+            store.put({ key: AUTOSAVE_KEY, token: nextToken, snapshot });
+          };
+          request.onerror = () => { failure = request.error || new Error("读取本地项目版本失败"); };
+          transaction.oncomplete = () => resolve(nextToken);
+          transaction.onerror = () => reject(failure || transaction.error || new Error("本地保存失败"));
+          transaction.onabort = () => reject(failure || transaction.error || new Error("本地保存已中止"));
+        });
+      }
+
+      async function getAutosave() {
+        const db = await openProjectDb();
+        return new Promise((resolve, reject) => {
+          const transaction = db.transaction(PROJECT_STORE, "readonly");
+          const request = transaction.objectStore(PROJECT_STORE).get(AUTOSAVE_KEY);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error || new Error("读取本地项目失败"));
+        });
+      }
+
+      function projectSnapshot() {
+        return {
+          kind: PROJECT_KIND,
+          version: PROJECT_VERSION,
+          projectId: state.projectId,
+          modifiedAt: state.modifiedAt,
+          savedAt: new Date().toISOString(),
+          settings: {
+            groups: state.groups.map((group) => ({ name: group.name, count: group.count })),
+            laneLabels: [...state.laneLabels],
+            layoutMode: state.layoutMode,
+            footerLabel: state.footerLabel,
+            laneWidth: state.laneWidth,
+            rowHeight: state.rowHeight,
+            rowGap: state.rowGap,
+            labelSize: state.labelSize,
+            showMw: state.showMw,
+            showLanes: state.showLanes,
+            showBorder: state.showBorder,
+            demoLoaded: state.demoLoaded,
+            exportDpi: state.pngDpi
+          },
+          rows: state.rows.map((row) => ({
+            name: row.name,
+            mw: row.mw,
+            crop: row.crop ? { ...row.crop } : null,
+            brightness: row.brightness,
+            contrast: row.contrast,
+            invert: row.invert,
+            source: row.sourceFile ? {
+              name: row.sourceName || row.sourceFile.name,
+              type: row.sourceType || row.sourceFile.type,
+              size: row.sourceBytes ?? row.sourceFile.size,
+              lastModified: row.sourceLastModified || row.sourceFile.lastModified || 0,
+              sha256: row.sourceSha256 || "",
+              blob: row.sourceFile
+            } : null
+          }))
+        };
+      }
+
+      function scheduleAutosave() {
+        clearTimeout(autosaveTimer);
+        setAutosaveStatus("待保存");
+        autosaveTimer = setTimeout(saveAutosave, 800);
+      }
+
+      async function saveAutosave() {
+        const revision = autosaveRevision;
+        setAutosaveStatus("保存中…");
+        try {
+          autosaveToken = await putAutosave(projectSnapshot());
+          if (revision === autosaveRevision) {
+            state.dirty = false;
+            setAutosaveStatus("已保存到本机");
+          } else {
+            scheduleAutosave();
+          }
+        } catch (error) {
+          state.dirty = true;
+          setAutosaveStatus(error.code === "AUTOSAVE_CONFLICT" ? "检测到其他标签页，未覆盖" : "不可用，请保存项目文件");
+          console.warn("BlotBoard autosave failed", error);
+        }
+      }
+
+      function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error || new Error("图片编码失败"));
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function dataUrlToBlob(dataUrl) {
+        const match = typeof dataUrl === "string" && dataUrl.match(/^data:([^;,]*)(?:;[^,]*)?;base64,([A-Za-z0-9+/=\s]+)$/);
+        if (!match) throw new Error("项目中的图片数据格式无效");
+        const binary = atob(match[2].replace(/\s/g, ""));
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+        return new Blob([bytes], { type: match[1] || "application/octet-stream" });
+      }
+
+      async function exportProject() {
+        try {
+          const snapshot = projectSnapshot();
+          const portableRows = [];
+          setAutosaveStatus("正在生成项目文件…");
+          for (const row of snapshot.rows) {
+            if (!row.source) {
+              portableRows.push(row);
+              continue;
+            }
+            const { blob, ...source } = row.source;
+            portableRows.push({ ...row, source: { ...source, dataUrl: await blobToDataUrl(blob) } });
+          }
+          const portable = { ...snapshot, rows: portableRows };
+          downloadBlob(new Blob([JSON.stringify(portable)], { type: "application/json;charset=utf-8" }), fileName("wb-project", "project"));
+          setAutosaveStatus(state.dirty ? "待保存" : "已保存到本机");
+          toast("项目文件已保存，包含原始图片和全部设置");
+        } catch (error) {
+          setAutosaveStatus("项目文件生成失败");
+          toast(`项目保存失败：${error.message}`);
+        }
+      }
+
+      function finiteInRange(value, min, max, label) {
+        if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new Error(`${label}超出允许范围`);
+        return value;
+      }
+
+      function booleanValue(value, label) {
+        if (typeof value !== "boolean") throw new Error(`${label}格式无效`);
+        return value;
+      }
+
+      function validateProject(project) {
+        if (!project || project.kind !== PROJECT_KIND) throw new Error("这不是 BlotBoard 项目文件");
+        if (project.version !== PROJECT_VERSION) throw new Error(`项目版本 ${project.version ?? "未知"} 暂不支持，请使用新版网页`);
+        if (typeof project.projectId !== "string" || !/^[a-zA-Z0-9-]{8,80}$/.test(project.projectId)) throw new Error("项目标识无效");
+        if (typeof project.modifiedAt !== "string" || !Number.isFinite(Date.parse(project.modifiedAt))) throw new Error("项目修改时间无效");
+        const settings = project.settings;
+        if (!settings || !Array.isArray(settings.groups) || !settings.groups.length) throw new Error("项目缺少样本分组");
+        const groups = settings.groups.map((group) => {
+          if (!group || typeof group.name !== "string" || !group.name.trim() || group.name.length > 40) throw new Error("项目中的分组名称无效");
+          const count = finiteInRange(group.count, 1, 24, "分组样本数");
+          if (!Number.isInteger(count)) throw new Error("分组样本数必须为整数");
+          return { name: group.name, count };
+        });
+        const laneCount = groups.reduce((sum, group) => sum + group.count, 0);
+        if (laneCount > 24) throw new Error("项目总样本数超过 24");
+        if (!Array.isArray(settings.laneLabels) || settings.laneLabels.length !== laneCount || settings.laneLabels.some((label) => typeof label !== "string" || label.length > 40)) throw new Error("项目中的泳道标签无效");
+        if (!["compact", "groups"].includes(settings.layoutMode)) throw new Error("项目中的版式无效");
+        if (typeof settings.footerLabel !== "string" || settings.footerLabel.length > 40) throw new Error("项目中的底部说明无效");
+        const normalizedSettings = {
+          groups,
+          laneLabels: [...settings.laneLabels],
+          layoutMode: settings.layoutMode,
+          footerLabel: settings.footerLabel,
+          laneWidth: finiteInRange(settings.laneWidth, 28, 130, "泳道宽度"),
+          rowHeight: finiteInRange(settings.rowHeight, 28, 130, "条带行高"),
+          rowGap: finiteInRange(settings.rowGap, 0, 48, "行间距"),
+          labelSize: finiteInRange(settings.labelSize, 14, 28, "标签字号"),
+          showMw: booleanValue(settings.showMw, "分子量开关"),
+          showLanes: booleanValue(settings.showLanes, "泳道编号开关"),
+          showBorder: booleanValue(settings.showBorder, "边框开关"),
+          demoLoaded: booleanValue(settings.demoLoaded, "示例状态"),
+          exportDpi: settings.exportDpi === 600 ? 600 : 300
+        };
+        if (normalizedSettings.laneWidth !== normalizedSettings.rowHeight) throw new Error("泳道宽度与条带高度必须一致");
+        if (!Array.isArray(project.rows) || project.rows.length > MAX_ROWS) throw new Error(`项目条带行不能超过 ${MAX_ROWS} 行`);
+        const rows = project.rows.map((row) => {
+          if (!row || typeof row.name !== "string" || row.name.length > 40 || typeof row.mw !== "string" || row.mw.length > 20) throw new Error("项目中的蛋白标签无效");
+          const normalized = {
+            name: row.name,
+            mw: row.mw,
+            crop: row.crop,
+            brightness: finiteInRange(row.brightness, 50, 160, "亮度"),
+            contrast: finiteInRange(row.contrast, 50, 200, "对比度"),
+            invert: booleanValue(row.invert, "反相开关"),
+            source: row.source
+          };
+          if (row.source !== null) {
+            const source = row.source;
+            if (!source || typeof source.name !== "string" || !source.name || source.name.length > 260 || typeof source.type !== "string" || source.type.length > 100) throw new Error("项目中的原始文件信息无效");
+            finiteInRange(source.size, 0, MAX_FILE_BYTES, "原始文件大小");
+            finiteInRange(source.lastModified, 0, 8.64e15, "原始文件时间");
+            if (typeof source.sha256 !== "string" || (source.sha256 && !/^[a-f0-9]{64}$/.test(source.sha256))) throw new Error("项目中的原始文件校验值无效");
+            if (!(source.blob instanceof Blob) && typeof source.dataUrl !== "string") throw new Error("项目缺少原始图片数据");
+          } else if (row.crop !== null) {
+            throw new Error("空白条带行不能包含裁剪区域");
+          }
+          return normalized;
+        });
+        return { projectId: project.projectId, modifiedAt: new Date(project.modifiedAt).toISOString(), settings: normalizedSettings, rows };
+      }
+
+      function validatedRestoredCrop(row, crop) {
+        if (!crop || ![crop.x, crop.y, crop.w, crop.h].every((value) => typeof value === "number" && Number.isFinite(value))) throw new Error(`${row.sourceName}：裁剪参数无效`);
+        const epsilon = .001;
+        if (crop.x < 0 || crop.y < 0 || crop.w <= 0 || crop.h <= 0 || crop.x + crop.w > row.image.naturalWidth + epsilon || crop.y + crop.h > row.image.naturalHeight + epsilon) throw new Error(`${row.sourceName}：裁剪区域超出原图`);
+        return { x: crop.x, y: crop.y, w: crop.w, h: crop.h };
+      }
+
+      async function hydrateProject(project) {
+        const normalized = validateProject(project);
+        const temporaryRows = [];
+        let totalBytes = 0;
+        try {
+          for (const item of normalized.rows) {
+            if (!item.source) {
+              const row = blankRow();
+              row.name = item.name;
+              row.mw = item.mw;
+              row.brightness = item.brightness;
+              row.contrast = item.contrast;
+              row.invert = item.invert;
+              temporaryRows.push(row);
+              continue;
+            }
+            const sourceBlob = item.source.blob instanceof Blob ? item.source.blob : dataUrlToBlob(item.source.dataUrl);
+            if (sourceBlob.size !== item.source.size) throw new Error(`${item.source.name}：项目内文件大小校验失败`);
+            totalBytes += sourceBlob.size;
+            if (totalBytes > MAX_TOTAL_BYTES) throw new Error("项目原始图片总量超过 120 MB");
+            const file = new File([sourceBlob], item.source.name, { type: item.source.type || sourceBlob.type, lastModified: item.source.lastModified });
+            const row = await rowFromFile(file, undefined, true);
+            temporaryRows.push(row);
+            if (item.source.sha256 && item.source.sha256 !== row.sourceSha256) throw new Error(`${item.source.name}：无法通过 SHA-256 校验，文件可能已损坏或当前浏览器不支持校验`);
+            row.name = item.name;
+            row.mw = item.mw;
+            row.crop = validatedRestoredCrop(row, item.crop);
+            row.brightness = item.brightness;
+            row.contrast = item.contrast;
+            row.invert = item.invert;
+          }
+          return { projectId: normalized.projectId, modifiedAt: normalized.modifiedAt, settings: normalized.settings, rows: temporaryRows };
+        } catch (error) {
+          temporaryRows.forEach((row) => { if (row.objectUrl) URL.revokeObjectURL(row.objectUrl); });
+          throw error;
+        }
+      }
+
+      function applyHydratedProject(hydrated) {
+        if (imageEditor.open) imageEditor.close();
+        state.editor = null;
+        pointerAction = null;
+        const previousRows = state.rows;
+        const settings = hydrated.settings;
+        state.projectId = hydrated.projectId;
+        state.modifiedAt = hydrated.modifiedAt;
+        state.groups = settings.groups;
+        state.laneLabels = settings.laneLabels;
+        state.layoutMode = settings.layoutMode;
+        state.footerLabel = settings.footerLabel;
+        state.laneWidth = settings.laneWidth;
+        state.rowHeight = settings.rowHeight;
+        state.rowGap = settings.rowGap;
+        state.labelSize = settings.labelSize;
+        state.showMw = settings.showMw;
+        state.showLanes = settings.showLanes;
+        state.showBorder = settings.showBorder;
+        state.pngDpi = settings.exportDpi;
+        state.rows = hydrated.rows;
+        state.demoLoaded = settings.demoLoaded;
+        state.dirty = false;
+        previousRows.forEach((row) => { if (row.objectUrl) URL.revokeObjectURL(row.objectUrl); });
+        $("#groupInput").value = groupsToText(state.groups);
+        $("#laneLabelInput").value = laneLabelsToText(state.laneLabels);
+        syncLayoutControls();
+        renderGroupSummary();
+        renderRows();
+        requestRender();
+      }
+
+      function discardHydratedProject(hydrated) {
+        hydrated?.rows?.forEach((row) => { if (row.objectUrl) URL.revokeObjectURL(row.objectUrl); });
+      }
+
+      async function importProjectFile(file) {
+        if (file.size > MAX_PROJECT_FILE_BYTES) return toast("项目文件过大，不能超过约 162 MB");
+        if (pendingMutations) return toast("当前图片仍在处理中，请稍后再打开项目");
+        const workspace = $(".workspace");
+        workspace.inert = true;
+        workspace.setAttribute("aria-busy", "true");
+        const startingRevision = autosaveRevision;
+        try {
+          setAutosaveStatus("正在打开项目…");
+          const project = JSON.parse(await file.text());
+          const hydrated = await hydrateProject(project);
+          if (startingRevision !== autosaveRevision) {
+            discardHydratedProject(hydrated);
+            throw new Error("打开期间当前项目已发生变化，因此没有覆盖这些修改");
+          }
+          autosavePaused = true;
+          applyHydratedProject(hydrated);
+          autosavePaused = false;
+          markDirty(false);
+          toast("项目已打开，原始图片与全部设置已恢复");
+        } catch (error) {
+          autosavePaused = false;
+          setAutosaveStatus(state.dirty ? "待保存" : "已保存到本机");
+          toast(`项目打开失败：${error.message}`);
+        } finally {
+          workspace.inert = false;
+          workspace.removeAttribute("aria-busy");
+        }
+      }
+
+      function csvCell(value, numeric = false) {
+        let text = value === null || value === undefined ? "" : String(value);
+        if (!numeric && /^\s*[=+\-@]/.test(text)) text = `'${text}`;
+        return `"${text.replace(/"/g, '""')}"`;
+      }
+
+      async function exportAuditCsv() {
+        if (!state.rows.length) return toast("当前没有可记录的条带行");
+        const g = geometry();
+        const lanes = Math.max(1, totalSamples());
+        const timestamp = new Date().toISOString();
+        const columns = [
+          ["schema_version", true], ["project_id", false], ["project_modified_at_utc", false], ["artifact_stem", false], ["expected_png_file", false], ["expected_svg_file", false], ["exported_at_utc", false], ["row_order", true], ["protein", false], ["molecular_weight", false],
+          ["source_file", false], ["source_type", false], ["source_bytes", true], ["source_last_modified_utc", false], ["source_sha256", false], ["source_width_px", true], ["source_height_px", true],
+          ["crop_x_px", true], ["crop_y_px", true], ["crop_width_px", true], ["crop_height_px", true], ["crop_ratio", true],
+          ["brightness_percent", true], ["contrast_percent", true], ["inverted", false], ["layout_mode", false], ["lane_count", true],
+          ["groups_json", false], ["lane_labels_json", false], ["footer_label", false], ["font_family", false], ["label_size_logical_px", true], ["label_size_pt", true], ["strip_height_cm", true],
+          ["lane_width_cm", true], ["row_gap_cm", true], ["figure_width_cm", true], ["figure_height_cm", true], ["selected_png_dpi", true],
+          ["show_mw", false], ["show_lanes", false], ["show_border", false]
+        ];
+        const decimal = (value) => Number(Number(value).toFixed(6));
+        const records = await Promise.all(state.rows.map(async (row, index) => {
+          const crop = row.image && row.crop ? fitAspectCrop(row, row.crop) : null;
+          const sourceSha256 = row.sourceSha256 || (row.sourceFile ? await sha256Blob(row.sourceFile) : "");
+          return {
+            schema_version: PROJECT_VERSION,
+            project_id: state.projectId,
+            project_modified_at_utc: state.modifiedAt,
+            artifact_stem: artifactStem(),
+            expected_png_file: fileName("png", `${state.pngDpi}dpi`),
+            expected_svg_file: fileName("svg"),
+            exported_at_utc: timestamp,
+            row_order: index + 1,
+            protein: row.name,
+            molecular_weight: row.mw,
+            source_file: row.sourceName,
+            source_type: row.sourceType,
+            source_bytes: row.sourceBytes || 0,
+            source_last_modified_utc: row.sourceLastModified ? new Date(row.sourceLastModified).toISOString() : "",
+            source_sha256: sourceSha256,
+            source_width_px: row.image?.naturalWidth || "",
+            source_height_px: row.image?.naturalHeight || "",
+            crop_x_px: crop ? decimal(crop.x) : "",
+            crop_y_px: crop ? decimal(crop.y) : "",
+            crop_width_px: crop ? decimal(crop.w) : "",
+            crop_height_px: crop ? decimal(crop.h) : "",
+            crop_ratio: crop ? decimal(crop.w / crop.h) : "",
+            brightness_percent: row.brightness,
+            contrast_percent: row.contrast,
+            inverted: row.invert,
+            layout_mode: state.layoutMode,
+            lane_count: lanes,
+            groups_json: JSON.stringify(state.groups),
+            lane_labels_json: JSON.stringify(resolvedLaneLabels()),
+            footer_label: state.footerLabel,
+            font_family: "Arial",
+            label_size_logical_px: state.labelSize,
+            label_size_pt: decimal(state.labelSize / state.rowHeight * 28.3464567),
+            strip_height_cm: 1,
+            lane_width_cm: decimal(g.bandWidth / lanes / state.rowHeight),
+            row_gap_cm: decimal(state.rowGap / state.rowHeight),
+            figure_width_cm: decimal(g.width / state.rowHeight),
+            figure_height_cm: decimal(g.height / state.rowHeight),
+            selected_png_dpi: state.pngDpi,
+            show_mw: state.showMw,
+            show_lanes: state.showLanes,
+            show_border: state.showBorder
+          };
+        }));
+        const lines = [columns.map(([name]) => csvCell(name)).join(",")];
+        records.forEach((record) => lines.push(columns.map(([name, numeric]) => csvCell(record[name], numeric)).join(",")));
+        downloadBlob(new Blob(["\ufeff", lines.join("\r\n")], { type: "text/csv;charset=utf-8" }), fileName("csv", "processing-record"));
+        toast("处理记录 CSV 已导出");
+      }
+
+      async function initialize() {
+        const startingRevision = autosaveRevision;
+        try {
+          const record = await getAutosave();
+          autosaveToken = record?.token || null;
+          if (record?.snapshot) {
+            const hydrated = await hydrateProject(record.snapshot);
+            if (startingRevision !== autosaveRevision) {
+              discardHydratedProject(hydrated);
+              setAutosaveStatus("已保留当前修改");
+              return;
+            }
+            autosavePaused = true;
+            applyHydratedProject(hydrated);
+            autosavePaused = false;
+            setAutosaveStatus("已恢复本机项目");
+            return;
+          }
+          setAutosaveStatus("已开启");
+        } catch (error) {
+          autosavePaused = false;
+          setAutosaveStatus("不可用，请保存项目文件");
+          console.warn("BlotBoard restore failed", error);
+        }
+        if (startingRevision !== autosaveRevision) {
+          setAutosaveStatus("已保留当前修改");
+          return;
+        }
+        await loadDemo(true);
+      }
+
+      function openEditor(id) {
+        const row = state.rows.find((item) => item.id === id);
+        if (!row || !row.image) return;
+        state.editor = {
+          rowId: id,
+          drawMode: false,
+          draft: {
+            crop: fitAspectCrop(row, row.crop),
+            brightness: row.brightness,
+            contrast: row.contrast,
+            invert: row.invert
+          }
+        };
+        $("#editorTitle").textContent = `编辑条带图 · ${row.name}`;
+        $("#editBrightness").value = row.brightness;
+        $("#editContrast").value = row.contrast;
+        $("#editInvert").checked = row.invert;
+        $("#editorHelp").textContent = `已锁定 ${totalSamples()}:1 · ${totalSamples()} 个泳道；框内拖动可移动，重新框选请点击“重新框选”。`;
+        populateCopySources();
+        syncEditorDrawMode();
+        syncEditorLabels();
+        imageEditor.showModal();
+        renderEditor();
+        syncCropAccessibility(true);
+      }
+
+      function closeEditor() {
+        pointerAction = null;
+        state.editor = null;
+        imageEditor.close();
+      }
+
+      function editorRow() {
+        return state.editor && state.rows.find((row) => row.id === state.editor.rowId);
+      }
+
+      function syncCropAccessibility(announce = false) {
+        const crop = state.editor?.draft.crop;
+        if (!crop) return;
+        const values = `x ${Math.round(crop.x)}，y ${Math.round(crop.y)}，宽 ${Math.round(crop.w)}，高 ${Math.round(crop.h)} 像素`;
+        editorCanvas.setAttribute("aria-label", `条带裁剪编辑器；当前选区 ${values}。方向键移动，方括号键缩放，按住 Shift 每次调整 10 像素`);
+        if (announce) $("#cropStatus").textContent = `裁剪区域已更新：${values}`;
+      }
+
+      function syncEditorDrawMode() {
+        const active = Boolean(state.editor?.drawMode);
+        const button = $("#newCrop");
+        button.classList.toggle("primary", active);
+        button.textContent = active ? "请在原图拖动" : "重新框选";
+        editorCanvas.style.cursor = active ? "crosshair" : "grab";
+      }
+
+      function populateCopySources() {
+        const current = editorRow();
+        const select = $("#copyFromRow");
+        const button = $("#copyRowSettings");
+        select.replaceChildren();
+        if (!current) return;
+        const currentIndex = state.rows.indexOf(current);
+        const sources = state.rows.map((row, index) => ({ row, index })).filter(({ row }) => row.id !== current.id && row.image && row.crop);
+        if (!sources.length) {
+          const option = document.createElement("option");
+          option.textContent = "暂无其他已上传行";
+          option.value = "";
+          select.append(option);
+          select.disabled = true;
+          button.disabled = true;
+          return;
+        }
+        sources.forEach(({ row, index }) => {
+          const option = document.createElement("option");
+          option.value = String(row.id);
+          option.textContent = `第 ${index + 1} 行 · ${row.name || "未命名蛋白"}`;
+          select.append(option);
+        });
+        const previous = [...sources].reverse().find(({ index }) => index < currentIndex);
+        if (previous) select.value = String(previous.row.id);
+        select.disabled = false;
+        button.disabled = false;
+      }
+
+      function copyEditorSettings() {
+        const target = editorRow();
+        const source = state.rows.find((row) => row.id === Number($("#copyFromRow").value));
+        if (!target || !source || !target.image || !source.image) return;
+        const crop = fitAspectCrop(source, source.crop);
+        const mapped = {
+          x: crop.x / source.image.naturalWidth * target.image.naturalWidth,
+          y: crop.y / source.image.naturalHeight * target.image.naturalHeight,
+          w: crop.w / source.image.naturalWidth * target.image.naturalWidth,
+          h: crop.h / source.image.naturalHeight * target.image.naturalHeight
+        };
+        state.editor.draft.crop = fitAspectCrop(target, mapped);
+        state.editor.draft.brightness = source.brightness;
+        state.editor.draft.contrast = source.contrast;
+        state.editor.draft.invert = source.invert;
+        $("#editBrightness").value = source.brightness;
+        $("#editContrast").value = source.contrast;
+        $("#editInvert").checked = source.invert;
+        syncEditorLabels();
+        renderEditor();
+        syncCropAccessibility(true);
+        toast("已复制裁剪、亮度、对比度和反相设置");
+      }
+
+      function renderEditor() {
+        const row = editorRow();
+        if (!row) return;
+        const width = 900;
+        const height = 480;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        editorCanvas.width = width * dpr;
+        editorCanvas.height = height * dpr;
+        editorCanvas.style.aspectRatio = `${width} / ${height}`;
+        const ctx = editorCanvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = "#17202e";
+        ctx.fillRect(0, 0, width, height);
+        const padding = 28;
+        const scale = Math.min((width - padding * 2) / row.image.naturalWidth, (height - padding * 2) / row.image.naturalHeight);
+        const imageWidth = row.image.naturalWidth * scale;
+        const imageHeight = row.image.naturalHeight * scale;
+        const imageX = (width - imageWidth) / 2;
+        const imageY = (height - imageHeight) / 2;
+        editorView = { width, height, scale, imageX, imageY, imageWidth, imageHeight };
+        const draft = state.editor.draft;
+        ctx.save();
+        ctx.filter = `brightness(${draft.brightness}%) contrast(${draft.contrast}%) invert(${draft.invert ? 100 : 0}%)`;
+        ctx.drawImage(row.image, imageX, imageY, imageWidth, imageHeight);
+        ctx.restore();
+        const crop = draft.crop;
+        const x = imageX + crop.x * scale;
+        const y = imageY + crop.y * scale;
+        const w = crop.w * scale;
+        const h = crop.h * scale;
+        ctx.fillStyle = "rgba(5, 14, 27, .5)";
+        ctx.beginPath();
+        ctx.rect(imageX, imageY, imageWidth, imageHeight);
+        ctx.rect(x, y, w, h);
+        ctx.fill("evenodd");
+        const laneCount = Math.max(1, totalSamples());
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 196, 0, .88)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([6, 4]);
+        for (let lane = 1; lane < laneCount; lane += 1) {
+          const guideX = x + w * lane / laneCount;
+          ctx.beginPath();
+          ctx.moveTo(guideX, y);
+          ctx.lineTo(guideX, y + h);
+          ctx.stroke();
+        }
+        ctx.restore();
+        ctx.strokeStyle = "#ffc400";
+        const cssScale = Math.max(.01, editorCanvas.getBoundingClientRect().width / width);
+        const handleSize = Math.max(10, 10 / cssScale);
+        ctx.lineWidth = Math.max(3, 2 / cssScale);
+        ctx.strokeRect(x, y, w, h);
+        [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(([hx, hy]) => {
+          ctx.fillStyle = "#ffc400";
+          ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
+        });
+      }
+
+      function canvasPoint(event) {
+        const rect = editorCanvas.getBoundingClientRect();
+        return { x: (event.clientX - rect.left) * (editorView.width / rect.width), y: (event.clientY - rect.top) * (editorView.height / rect.height) };
+      }
+
+      function imagePoint(point, row) {
+        return {
+          x: Math.max(0, Math.min(row.image.naturalWidth, (point.x - editorView.imageX) / editorView.scale)),
+          y: Math.max(0, Math.min(row.image.naturalHeight, (point.y - editorView.imageY) / editorView.scale))
+        };
+      }
+
+      function pointInsideCrop(point, crop) {
+        return point.x >= crop.x && point.x <= crop.x + crop.w && point.y >= crop.y && point.y <= crop.y + crop.h;
+      }
+
+      function cropHandleAt(point, crop) {
+        const x = editorView.imageX + crop.x * editorView.scale;
+        const y = editorView.imageY + crop.y * editorView.scale;
+        const w = crop.w * editorView.scale;
+        const h = crop.h * editorView.scale;
+        const handles = { nw: [x, y], ne: [x + w, y], sw: [x, y + h], se: [x + w, y + h] };
+        const cssScale = Math.max(.01, editorCanvas.getBoundingClientRect().width / editorView.width);
+        const hitRadius = Math.max(13, 22 / cssScale);
+        const nearest = Object.entries(handles)
+          .map(([handle, [hx, hy]]) => ({ handle, distance: Math.hypot(point.x - hx, point.y - hy) }))
+          .sort((first, second) => first.distance - second.distance)[0];
+        return nearest && nearest.distance <= hitRadius ? nearest.handle : "";
+      }
+
+      function oppositeCorner(handle, crop) {
+        if (handle === "nw") return { x: crop.x + crop.w, y: crop.y + crop.h };
+        if (handle === "ne") return { x: crop.x, y: crop.y + crop.h };
+        if (handle === "sw") return { x: crop.x + crop.w, y: crop.y };
+        return { x: crop.x, y: crop.y };
+      }
+
+      editorCanvas.addEventListener("pointerdown", (event) => {
+        const row = editorRow();
+        if (!row || !editorView) return;
+        const canvasPosition = canvasPoint(event);
+        const point = imagePoint(canvasPosition, row);
+        const crop = state.editor.draft.crop;
+        const handle = cropHandleAt(canvasPosition, crop);
+        if (state.editor.drawMode || event.shiftKey) {
+          pointerAction = { type: "draw", start: point };
+          state.editor.drawMode = false;
+          syncEditorDrawMode();
+        } else if (handle) {
+          const directions = { nw: [-1, -1], ne: [1, -1], sw: [-1, 1], se: [1, 1] }[handle];
+          pointerAction = { type: "resize", anchor: oppositeCorner(handle, crop), sx: directions[0], sy: directions[1] };
+        }
+        else if (pointInsideCrop(point, crop)) pointerAction = { type: "move", start: point, original: { ...crop } };
+        else pointerAction = { type: "draw", start: point };
+        editorCanvas.setPointerCapture(event.pointerId);
+      });
+
+      editorCanvas.addEventListener("pointermove", (event) => {
+        if (!pointerAction) return;
+        const row = editorRow();
+        const point = imagePoint(canvasPoint(event), row);
+        if (pointerAction.type === "draw") {
+          const dx = point.x - pointerAction.start.x;
+          const dy = point.y - pointerAction.start.y;
+          const sx = dx < 0 ? -1 : dx > 0 ? 1 : (row.image.naturalWidth - pointerAction.start.x >= pointerAction.start.x ? 1 : -1);
+          const sy = dy < 0 ? -1 : dy > 0 ? 1 : (row.image.naturalHeight - pointerAction.start.y >= pointerAction.start.y ? 1 : -1);
+          const crop = aspectCropFromAnchor(row, pointerAction.start, point, sx, sy);
+          if (crop) state.editor.draft.crop = crop;
+        } else if (pointerAction.type === "resize") {
+          const crop = aspectCropFromAnchor(row, pointerAction.anchor, point, pointerAction.sx, pointerAction.sy);
+          if (crop) state.editor.draft.crop = crop;
+        } else {
+          const original = pointerAction.original;
+          const x = Math.max(0, Math.min(row.image.naturalWidth - original.w, original.x + point.x - pointerAction.start.x));
+          const y = Math.max(0, Math.min(row.image.naturalHeight - original.h, original.y + point.y - pointerAction.start.y));
+          state.editor.draft.crop = { ...original, x, y };
+        }
+        renderEditor();
+      });
+
+      editorCanvas.addEventListener("pointerup", (event) => {
+        if (!pointerAction) return;
+        if (editorCanvas.hasPointerCapture(event.pointerId)) editorCanvas.releasePointerCapture(event.pointerId);
+        pointerAction = null;
+        syncCropAccessibility(true);
+      });
+      editorCanvas.addEventListener("pointercancel", () => { pointerAction = null; });
+      editorCanvas.addEventListener("lostpointercapture", () => { pointerAction = null; });
+      editorCanvas.addEventListener("keydown", (event) => {
+        const row = editorRow();
+        const moveKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+        const resize = event.code === "BracketLeft" || event.code === "BracketRight";
+        if (!row || (!moveKeys.includes(event.key) && !resize)) return;
+        event.preventDefault();
+        const crop = state.editor.draft.crop;
+        const step = event.shiftKey ? 10 : 1;
+        if (resize) {
+          const ratio = Math.max(1, totalSamples());
+          const maximumHeight = Math.min(row.image.naturalHeight, row.image.naturalWidth / ratio);
+          const height = Math.max(Math.min(2, maximumHeight), Math.min(maximumHeight, crop.h + (event.code === "BracketRight" ? step : -step)));
+          const width = height * ratio;
+          const centerX = crop.x + crop.w / 2;
+          const centerY = crop.y + crop.h / 2;
+          state.editor.draft.crop = {
+            x: Math.max(0, Math.min(row.image.naturalWidth - width, centerX - width / 2)),
+            y: Math.max(0, Math.min(row.image.naturalHeight - height, centerY - height / 2)),
+            w: width,
+            h: height
+          };
+        } else {
+          const deltaX = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
+          const deltaY = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+          state.editor.draft.crop = {
+            ...crop,
+            x: Math.max(0, Math.min(row.image.naturalWidth - crop.w, crop.x + deltaX)),
+            y: Math.max(0, Math.min(row.image.naturalHeight - crop.h, crop.y + deltaY))
+          };
+        }
+        renderEditor();
+        syncCropAccessibility(true);
+      });
+
+      function syncEditorLabels() {
+        $("#editBrightnessValue").textContent = `${$("#editBrightness").value}%`;
+        $("#editContrastValue").textContent = `${$("#editContrast").value}%`;
+      }
+
+      function updateEditorDraft() {
+        if (!state.editor) return;
+        state.editor.draft.brightness = Number($("#editBrightness").value);
+        state.editor.draft.contrast = Number($("#editContrast").value);
+        state.editor.draft.invert = $("#editInvert").checked;
+        syncEditorLabels();
+        renderEditor();
+      }
+
+      function applyEditor() {
+        const row = editorRow();
+        if (!row) return closeEditor();
+        const draft = state.editor.draft;
+        row.crop = fitAspectCrop(row, draft.crop);
+        row.brightness = draft.brightness;
+        row.contrast = draft.contrast;
+        row.invert = draft.invert;
+        state.demoLoaded = false;
+        markDirty();
+        closeEditor();
+        renderRows();
+        requestRender();
+        toast("条带调整已应用");
+      }
+
+      $("#applyGroups").addEventListener("click", () => {
+        try {
+          const groups = parseGroups($("#groupInput").value);
+          const laneLabelText = $("#laneLabelInput").value;
+          const laneLabels = parseLaneLabels(laneLabelText, groups);
+          state.groups = groups;
+          state.laneLabels = laneLabels;
+          $("#groupInput").value = groupsToText(state.groups);
+          $("#laneLabelInput").value = laneLabelText.trim() ? laneLabelsToText(state.laneLabels) : "";
+          markDirty();
+          renderGroupSummary();
+          requestRender();
+          toast("样本分组与泳道标签已更新");
+        } catch (error) { toast(error.message); }
+      });
+      $("#loadDemo").addEventListener("click", () => {
+        if (confirm("恢复示例会替换当前条带与标签，继续吗？")) loadDemo();
+      });
+      $("#loadDemoTop").addEventListener("click", () => { location.hash = "#studio"; });
+      $("#addRow").addEventListener("click", () => {
+        if (state.rows.length >= MAX_ROWS) return toast(`每个图组最多支持 ${MAX_ROWS} 行蛋白`);
+        state.rows.push(blankRow());
+        state.demoLoaded = false;
+        markDirty();
+        renderRows();
+        requestRender();
+      });
+      $("#dropzone").addEventListener("click", () => $("#multiFile").click());
+      $("#dropzone").addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); $("#multiFile").click(); } });
+      $("#multiFile").addEventListener("change", (event) => { addFiles(event.target.files); event.target.value = ""; });
+      ["dragenter", "dragover"].forEach((type) => $("#dropzone").addEventListener(type, (event) => { event.preventDefault(); $("#dropzone").classList.add("is-over"); }));
+      ["dragleave", "drop"].forEach((type) => $("#dropzone").addEventListener(type, (event) => { event.preventDefault(); $("#dropzone").classList.remove("is-over"); }));
+      $("#dropzone").addEventListener("drop", (event) => addFiles(event.dataTransfer.files));
+
+      $("#layoutMode").addEventListener("change", (event) => {
+        state.layoutMode = event.target.value;
+        state.laneWidth = state.rowHeight;
+        syncLayoutControls();
+        markDirty();
+        requestRender();
+      });
+      $("#footerLabel").addEventListener("input", (event) => { state.footerLabel = event.target.value; syncLaneToggleAvailability(); markDirty(); requestRender(); });
+      $("#compactPreset").addEventListener("click", () => {
+        const laneLabelText = $("#laneLabelInput").value;
+        try {
+          state.groups = parseGroups($("#groupInput").value);
+          state.laneLabels = parseLaneLabels(laneLabelText, state.groups);
+        } catch (error) {
+          return toast(error.message);
+        }
+        state.layoutMode = "compact";
+        state.footerLabel = $("#footerLabel").value.trim() || "Cell line";
+        state.laneWidth = 40;
+        state.rowHeight = 40;
+        state.rowGap = 7;
+        state.labelSize = 16;
+        state.showMw = true;
+        state.showLanes = false;
+        state.showBorder = true;
+        $("#groupInput").value = groupsToText(state.groups);
+        $("#laneLabelInput").value = laneLabelText.trim() ? laneLabelsToText(state.laneLabels) : "";
+        syncLayoutControls();
+        renderGroupSummary();
+        markDirty();
+        requestRender();
+        toast("已套用期刊紧凑样式");
+      });
+
+      [["laneWidth", "laneWidthValue", "laneWidth"], ["rowHeight", "rowHeightValue", "rowHeight"], ["rowGap", "rowGapValue", "rowGap"], ["labelSize", "labelSizeValue", "labelSize"]].forEach(([inputId, valueId, key]) => {
+        $("#" + inputId).addEventListener("input", (event) => {
+          const value = Number(event.target.value);
+          state[key] = value;
+          $("#" + valueId).textContent = `${event.target.value} px`;
+          if (key === "laneWidth" || key === "rowHeight") {
+            const linkedInput = key === "laneWidth" ? "rowHeight" : "laneWidth";
+            state[linkedInput] = value;
+            $("#" + linkedInput).value = value;
+            $("#" + linkedInput + "Value").textContent = `${value} px`;
+          }
+          markDirty();
+          requestRender();
+        });
+      });
+      [["showMw", "showMw"], ["showLanes", "showLanes"], ["showBorder", "showBorder"]].forEach(([inputId, key]) => {
+        $("#" + inputId).addEventListener("change", (event) => { state[key] = event.target.checked; markDirty(); requestRender(); });
+      });
+      $("#exportPng").addEventListener("click", exportPng);
+      $("#exportSvg").addEventListener("click", exportSvg);
+      $("#copyPng").addEventListener("click", copyPng);
+      $("#pngDpi").addEventListener("change", (event) => { state.pngDpi = Number(event.target.value) === 600 ? 600 : 300; markDirty(); });
+      $("#saveProject").addEventListener("click", exportProject);
+      $("#openProject").addEventListener("click", () => $("#projectFile").click());
+      $("#projectFile").addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        event.target.value = "";
+        if (file) importProjectFile(file);
+      });
+      $("#exportAudit").addEventListener("click", exportAuditCsv);
+
+      $("#closeEditor").addEventListener("click", closeEditor);
+      $("#cancelEditor").addEventListener("click", closeEditor);
+      $("#applyEditor").addEventListener("click", applyEditor);
+      $("#copyRowSettings").addEventListener("click", copyEditorSettings);
+      $("#editBrightness").addEventListener("input", updateEditorDraft);
+      $("#editContrast").addEventListener("input", updateEditorDraft);
+      $("#editInvert").addEventListener("change", updateEditorDraft);
+      $("#newCrop").addEventListener("click", () => {
+        if (!state.editor) return;
+        state.editor.drawMode = !state.editor.drawMode;
+        syncEditorDrawMode();
+        if (state.editor.drawMode) editorCanvas.focus();
+      });
+      $("#resetCrop").addEventListener("click", () => {
+        const row = editorRow();
+        if (!row) return;
+        state.editor.drawMode = false;
+        syncEditorDrawMode();
+        state.editor.draft.crop = maximumAspectCrop(row);
+        renderEditor();
+        syncCropAccessibility(true);
+      });
+      imageEditor.addEventListener("cancel", (event) => { event.preventDefault(); closeEditor(); });
+      window.addEventListener("resize", () => { if (state.editor) renderEditor(); });
+      window.addEventListener("beforeunload", (event) => {
+        if (!state.dirty) return;
+        event.preventDefault();
+        event.returnValue = "";
+      });
+
+      $(".workspace").inert = true;
+      $(".workspace").setAttribute("aria-busy", "true");
+      initialize().finally(() => {
+        $(".workspace").inert = false;
+        $(".workspace").removeAttribute("aria-busy");
+      });
+    })();
+  </script>
+</body>
+</html>
