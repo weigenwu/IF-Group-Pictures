@@ -1091,6 +1091,12 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/wb")
+@app.route("/wb/")
+def wb():
+    return render_template("wb.html")
+
+
 @app.route("/api/upload", methods=["POST"])
 def upload_folder():
     started_at = perf_counter()
