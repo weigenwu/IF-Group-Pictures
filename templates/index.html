@@ -3,35 +3,43 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="FigureLab 荧光、IHC 与 Western blot 科研组图工具。">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232864e8'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-family='Arial' font-size='20' font-weight='700' fill='white'%3EFig%3C/text%3E%3C/svg%3E">
     <title>FigureLab · 荧光 / IHC 组图</title>
     <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body>
     <header class="suitebar">
-      <a class="suite-brand" href="/" aria-label="FigureLab 科研组图首页">
+      <a class="suite-brand" href="#top" aria-label="返回当前页面顶部">
         <span class="suite-mark" aria-hidden="true">Fig</span>
         <span>FigureLab</span>
       </a>
       <nav class="suite-tabs" aria-label="组图工具">
-        <a class="suite-tab" href="/" aria-current="page">荧光 / IHC</a>
-        <a class="suite-tab" href="/wb">WB 组图</a>
+        <a class="suite-tab" href="#top" aria-current="page">荧光 / IHC</a>
+        <a class="suite-tab" href="https://weigenwu.github.io/wb/#studio" target="_blank" rel="noopener" title="在新标签页打开；WB 图片只在浏览器本地处理">WB 组图 ↗</a>
       </nav>
     </header>
-    <main class="shell">
+    <main class="shell" id="top">
       <section class="toolbar">
         <div class="title-block">
           <h1>荧光 / IHC 组图</h1>
           <p id="summary">支持 IF 荧光图和 IHC 组化图，选择文件夹后按论文组图样式自动排版。</p>
-          <p class="data-note"><strong>服务器处理：</strong>图片会上传到本服务以生成预览和导出文件，请只上传允许处理的数据。</p>
+          <p class="data-note"><strong>服务器处理：</strong>图片会上传到 Render 临时文件系统；应用会在后续上传时清理超过 24 小时的数据，平台重启或重新部署也可能提前清除。请仅上传允许交由服务器处理的数据。休眠后首次打开可能需要约 1 分钟。</p>
         </div>
 
-        <div class="controls">
-          <label class="file-picker">
-            <input id="folderInput" type="file" webkitdirectory directory multiple accept=".tif,.tiff,.png,.jpg,.jpeg,.bmp">
-            选择文件夹
-          </label>
-          <button id="uploadBtn" type="button" disabled>读取并分组</button>
-          <button id="exportBtn" type="button" disabled>导出 PPTX</button>
+        <div class="upload-actions">
+          <div class="controls">
+            <label class="file-picker">
+              <input id="folderInput" type="file" webkitdirectory directory multiple accept=".tif,.tiff,.png,.jpg,.jpeg,.bmp" aria-describedby="fileSummary">
+              选择文件夹
+            </label>
+            <label class="file-picker secondary">
+              <input id="fileInput" type="file" multiple accept=".tif,.tiff,.png,.jpg,.jpeg,.bmp" aria-describedby="fileSummary">
+              选择图片
+            </label>
+            <button id="uploadBtn" type="button" disabled>上传并生成预览</button>
+          </div>
+          <p id="fileSummary" class="file-summary" aria-live="polite">可选择整个文件夹，或一次多选图片。</p>
         </div>
       </section>
 
@@ -140,23 +148,23 @@
         </label>
         <label class="check-label">
           <input id="ihcDrawConnectors" type="checkbox" checked>
-          显示连线
+          显示连线（导出文件）
         </label>
       </section>
 
       <section id="progressPanel" class="progress-panel" hidden>
         <div class="progress-meta">
           <span id="phaseText">准备上传</span>
-          <span id="elapsedText">0.0s</span>
+          <span class="progress-side"><span id="elapsedText">0.0s</span><button id="cancelUpload" class="cancel-button" type="button" hidden>取消</button></span>
         </div>
-        <div class="progress-track">
+        <div id="progressTrack" class="progress-track" role="progressbar" aria-label="任务进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div id="progressBar" class="progress-bar"></div>
         </div>
-        <div id="progressDetail" class="progress-detail">等待开始。</div>
+        <div id="progressDetail" class="progress-detail" aria-live="polite">等待开始。</div>
       </section>
 
       <section id="channelPanel" class="channel-panel" hidden>
-        <div class="section-title">顶部 marker 名称</div>
+        <div class="section-title">顶部 marker 名称与显示通道</div>
         <div id="channels" class="channels"></div>
       </section>
 
@@ -166,8 +174,14 @@
       </section>
 
       <section class="preview-head">
-        <div class="section-title">预览</div>
-        <div id="status" class="status">尚未选择文件夹</div>
+        <div>
+          <div class="section-title">内容预览</div>
+          <p class="preview-hint">marker、组名、背景和图片方式会实时更新；分页、图题与面板字母在导出文件中呈现。</p>
+        </div>
+        <div class="preview-actions">
+          <div id="status" class="status" role="status" aria-live="polite">尚未选择图片</div>
+          <button id="exportBtn" type="button" disabled>导出 PPTX</button>
+        </div>
       </section>
       <section id="preview" class="preview empty">
         <div class="empty-text">预览会显示在这里。</div>

@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import zipfile
 import uuid
 from datetime import datetime
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, time
 from typing import Any
 
 from flask import Flask, jsonify, render_template, request, send_file
@@ -25,6 +26,9 @@ EXPORT_DIR = BASE_DIR / "exports"
 SUPPORTED_EXTENSIONS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".bmp"}
 MAX_PREVIEW_SIZE = (900, 650)
 RASTER_DPI = 240
+TEMP_TTL_SECONDS = 24 * 60 * 60
+JOB_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
+PREVIEW_NAME_PATTERN = re.compile(r"^\d{5}_[0-9a-f]{8}\.png$")
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024 * 1024
@@ -32,6 +36,40 @@ app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024 * 1024
 
 def now_stamp() -> str:
     return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def unique_export_stamp() -> str:
+    return f"{now_stamp()}_{uuid.uuid4().hex[:12]}"
+
+
+def validated_job_id(job_id: Any) -> str:
+    value = str(job_id or "")
+    if not JOB_ID_PATTERN.fullmatch(value):
+        raise FileNotFoundError("任务不存在或已过期，请重新上传")
+    return value
+
+
+def job_export_dir(manifest: dict[str, Any]) -> Path:
+    output_dir = EXPORT_DIR / validated_job_id(manifest.get("job_id"))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+def cleanup_expired_temp_data() -> None:
+    cutoff = time() - TEMP_TTL_SECONDS
+    for root in (JOBS_DIR, EXPORT_DIR):
+        if not root.exists():
+            continue
+        for child in root.iterdir():
+            try:
+                if child.stat().st_mtime >= cutoff:
+                    continue
+                if child.is_dir():
+                    shutil.rmtree(child, ignore_errors=True)
+                else:
+                    child.unlink(missing_ok=True)
+            except OSError:
+                continue
 
 
 def safe_path(raw_path: str) -> Path:
@@ -196,13 +234,13 @@ def make_job_manifest(job_id: str, items: list[dict[str, Any]]) -> dict[str, Any
 
 
 def manifest_path(job_id: str) -> Path:
-    return JOBS_DIR / job_id / "manifest.json"
+    return JOBS_DIR / validated_job_id(job_id) / "manifest.json"
 
 
 def load_manifest(job_id: str) -> dict[str, Any]:
     path = manifest_path(job_id)
     if not path.exists():
-        raise FileNotFoundError(f"Job not found: {job_id}")
+        raise FileNotFoundError("任务不存在或已过期，请重新上传")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -323,7 +361,26 @@ def add_image_cover(
     )
 
 
-def add_image_contained(slide, image_path: Path, left: float, top: float, width: float, height: float) -> None:
+def add_image_contained(
+    slide,
+    image_path: Path,
+    left: float,
+    top: float,
+    width: float,
+    height: float,
+    background: RGBColor | None = None,
+) -> None:
+    if background is not None:
+        cell = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Inches(left),
+            Inches(top),
+            Inches(width),
+            Inches(height),
+        )
+        cell.fill.solid()
+        cell.fill.fore_color.rgb = background
+        cell.line.fill.background()
     with Image.open(image_path) as image:
         image_width, image_height = image.size
     aspect = image_width / image_height
@@ -396,7 +453,18 @@ def resolve_export_content(manifest: dict[str, Any], settings: dict[str, Any]) -
     if layout_mode == "manual":
         group_count = int(settings.get("group_count") or 1)
         images_per_group = int(settings.get("images_per_group") or 1)
-        channel_order, groups = build_manual_groups(manifest, group_count, images_per_group)
+        manual_channel_order, groups = build_manual_groups(manifest, group_count, images_per_group)
+        requested_channels = settings.get("channel_order")
+        channel_order = (
+            [channel for channel in requested_channels if channel in manual_channel_order]
+            if isinstance(requested_channels, list)
+            else manual_channel_order
+        )
+        selected = set(channel_order)
+        groups = [
+            {**group, "images": [image for image in group["images"] if image["channel"] in selected]}
+            for group in groups
+        ]
         rows_per_slide = min(rows_per_slide, max(len(groups), 1))
     else:
         channel_order = settings.get("channel_order") or [channel["key"] for channel in manifest["channels"]]
@@ -404,7 +472,7 @@ def resolve_export_content(manifest: dict[str, Any], settings: dict[str, Any]) -
         groups = manifest["groups"]
 
     if not channel_order:
-        raise ValueError("No channels selected")
+        raise ValueError("预览和导出至少需要保留一个通道")
 
     return {
         "channel_order": channel_order,
@@ -510,9 +578,8 @@ def build_pptx(manifest: dict[str, Any], settings: dict[str, Any]) -> Path:
     actual_grid_width = layout["actual_grid_width"]
     actual_grid_left = layout["actual_grid_left"]
 
-    output_name = f"fluorescence_batch_{now_stamp()}.pptx"
-    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = EXPORT_DIR / output_name
+    output_name = f"fluorescence_batch_{unique_export_stamp()}.pptx"
+    output_path = job_export_dir(manifest) / output_name
     crop_dir = JOBS_DIR / manifest["job_id"] / "export_crops" / uuid.uuid4().hex[:8]
     crop_cache: dict[str, Path] = {}
 
@@ -578,7 +645,7 @@ def build_pptx(manifest: dict[str, Any], settings: dict[str, Any]) -> Path:
                 if image:
                     source_path = image_source_path(image)
                     if fit_mode == "contain":
-                        add_image_contained(slide, source_path, col_left, row_top, cell_size, cell_size)
+                        add_image_contained(slide, source_path, col_left, row_top, cell_size, cell_size, RGBColor(0, 0, 0))
                     else:
                         add_image_cover(
                             slide,
@@ -645,6 +712,18 @@ def build_ihc_groups(manifest: dict[str, Any], group_count: int) -> list[dict[st
     return groups
 
 
+def normalized_ihc_roi(settings: dict[str, Any]) -> tuple[float, float, float, float]:
+    def value(key: str, default: float) -> float:
+        raw = settings.get(key)
+        return float(default if raw is None or raw == "" else raw)
+
+    width = min(max(value("ihc_roi_w", 0.30), 0.05), 1.0)
+    height = min(max(value("ihc_roi_h", 0.28), 0.05), 1.0)
+    x = min(max(value("ihc_roi_x", 0.32), 0.0), 1.0 - width)
+    y = min(max(value("ihc_roi_y", 0.36), 0.0), 1.0 - height)
+    return x, y, width, height
+
+
 def build_ihc_pptx(manifest: dict[str, Any], settings: dict[str, Any]) -> Path:
     group_count = int(settings.get("group_count") or 1)
     groups = build_ihc_groups(manifest, group_count)
@@ -654,11 +733,16 @@ def build_ihc_pptx(manifest: dict[str, Any], settings: dict[str, Any]) -> Path:
     title = (settings.get("title") or "").strip()
     panel_letter = (settings.get("panel_letter") or "").strip()
     draw_connectors = bool(settings.get("ihc_draw_connectors", True))
-    roi_x = float(settings.get("ihc_roi_x") or 0.32)
-    roi_y = float(settings.get("ihc_roi_y") or 0.36)
-    roi_w = float(settings.get("ihc_roi_w") or 0.30)
-    roi_h = float(settings.get("ihc_roi_h") or 0.28)
+    roi_x, roi_y, roi_w, roi_h = normalized_ihc_roi(settings)
     rows_per_slide = min(max(int(settings.get("rows_per_slide") or len(groups) or 1), 1), 4)
+    dark = (settings.get("background") or "white") == "black"
+    show_group_labels = bool(settings.get("show_sample_name", True))
+    group_label_side = settings.get("group_label_side") or "left"
+    fit_mode = settings.get("fit_mode") or "crop"
+    bg_color = RGBColor(0, 0, 0) if dark else RGBColor(255, 255, 255)
+    text_color = RGBColor(245, 245, 245) if dark else RGBColor(0, 0, 0)
+    secondary_color = RGBColor(210, 210, 210) if dark else RGBColor(80, 80, 80)
+    line_color = RGBColor(225, 225, 225) if dark else RGBColor(60, 60, 60)
 
     prs = Presentation()
     prs.slide_width = Inches(13.333)
@@ -674,23 +758,24 @@ def build_ihc_pptx(manifest: dict[str, Any], settings: dict[str, Any]) -> Path:
     header_height = 0.36
     bottom_margin = 0.35
     row_gap = 0.34
-    side_label_width = 0.55
+    side_label_width = 0.55 if show_group_labels else 0
+    side_gap = 0.18 if show_group_labels else 0
     between_cols = 0.85
     content_top = top_margin + title_height + header_height
     row_height = (slide_height - content_top - bottom_margin - row_gap * (rows_per_slide - 1)) / rows_per_slide
     image_height = max(0.72, row_height)
     image_width = image_height * 1.72
-    low_left = margin_left + side_label_width + 0.18
+    low_left = margin_left + (side_label_width + side_gap if show_group_labels and group_label_side != "right" else 0)
     high_left = low_left + image_width + between_cols
-    if high_left + image_width > slide_width - margin_right:
-        available = slide_width - margin_right - low_left - between_cols
+    right_reserved = side_label_width + side_gap if show_group_labels and group_label_side == "right" else 0
+    if high_left + image_width > slide_width - margin_right - right_reserved:
+        available = slide_width - margin_right - right_reserved - low_left - between_cols
         image_width = available / 2
         image_height = min(image_height, image_width / 1.72)
         high_left = low_left + image_width + between_cols
 
-    output_name = f"ihc_batch_{now_stamp()}.pptx"
-    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = EXPORT_DIR / output_name
+    output_name = f"ihc_batch_{unique_export_stamp()}.pptx"
+    output_path = job_export_dir(manifest) / output_name
     crop_dir = JOBS_DIR / manifest["job_id"] / "ihc_export_crops" / uuid.uuid4().hex[:8]
     crop_cache: dict[str, Path] = {}
 
@@ -698,44 +783,53 @@ def build_ihc_pptx(manifest: dict[str, Any], settings: dict[str, Any]) -> Path:
         slide = prs.slides.add_slide(blank_layout)
         fill = slide.background.fill
         fill.solid()
-        fill.fore_color.rgb = RGBColor(255, 255, 255)
+        fill.fore_color.rgb = bg_color
 
         title_left = margin_left + (0.34 if panel_letter else 0)
         if panel_letter:
-            add_textbox(slide, panel_letter, margin_left, top_margin, 0.28, 0.28, 16, RGBColor(0, 0, 0), bold=True)
+            add_textbox(slide, panel_letter, margin_left, top_margin, 0.28, 0.28, 16, text_color, bold=True)
         if title:
-            add_textbox(slide, title, title_left, top_margin, slide_width - title_left - margin_right, 0.28, 14, RGBColor(0, 0, 0), bold=True)
+            add_textbox(slide, title, title_left, top_margin, slide_width - title_left - margin_right, 0.28, 14, text_color, bold=True)
 
         header_top = top_margin + title_height
-        add_textbox(slide, low_label, low_left, header_top, image_width, 0.28, 14, RGBColor(0, 0, 0), bold=True, align=PP_ALIGN.CENTER)
-        add_textbox(slide, high_label, high_left, header_top, image_width, 0.28, 14, RGBColor(0, 0, 0), bold=True, align=PP_ALIGN.CENTER)
+        add_textbox(slide, low_label, low_left, header_top, image_width, 0.28, 14, text_color, bold=True, align=PP_ALIGN.CENTER)
+        add_textbox(slide, high_label, high_left, header_top, image_width, 0.28, 14, text_color, bold=True, align=PP_ALIGN.CENTER)
 
         page_groups = groups[page_start : page_start + rows_per_slide]
         for row_index, group in enumerate(page_groups):
             row_top = content_top + row_index * (row_height + row_gap)
             row_top += max(0, (row_height - image_height) / 2)
             label = group_labels.get(group["key"]) or group["display"]
-            add_textbox(slide, label, margin_left, row_top, side_label_width, image_height, 13, RGBColor(0, 0, 0), bold=True, align=PP_ALIGN.CENTER, rotation=270)
+            if show_group_labels:
+                label_left = high_left + image_width + side_gap if group_label_side == "right" else margin_left
+                rotation = 90 if group_label_side == "right" else 270
+                add_textbox(slide, label, label_left, row_top, side_label_width, image_height, 13, text_color, bold=True, align=PP_ALIGN.CENTER, rotation=rotation)
             images_by_channel = {image["channel"]: image for image in group["images"]}
             low_image = images_by_channel.get("low")
             high_image = images_by_channel.get("high")
             if low_image:
-                add_ppt_picture_cover(slide, image_source_path(low_image), low_left, row_top, image_width, image_height, crop_dir, crop_cache)
+                if fit_mode == "contain":
+                    add_image_contained(slide, image_source_path(low_image), low_left, row_top, image_width, image_height, bg_color)
+                else:
+                    add_ppt_picture_cover(slide, image_source_path(low_image), low_left, row_top, image_width, image_height, crop_dir, crop_cache)
             else:
-                add_missing_cell(slide, low_left, row_top, image_width, image_height, RGBColor(80, 80, 80))
+                add_missing_cell(slide, low_left, row_top, image_width, image_height, secondary_color)
             if high_image:
-                add_ppt_picture_cover(slide, image_source_path(high_image), high_left, row_top, image_width, image_height, crop_dir, crop_cache)
+                if fit_mode == "contain":
+                    add_image_contained(slide, image_source_path(high_image), high_left, row_top, image_width, image_height, bg_color)
+                else:
+                    add_ppt_picture_cover(slide, image_source_path(high_image), high_left, row_top, image_width, image_height, crop_dir, crop_cache)
             else:
-                add_missing_cell(slide, high_left, row_top, image_width, image_height, RGBColor(80, 80, 80))
+                add_missing_cell(slide, high_left, row_top, image_width, image_height, secondary_color)
 
             roi_left = low_left + roi_x * image_width
             roi_top = row_top + roi_y * image_height
             roi_width = roi_w * image_width
             roi_height = roi_h * image_height
-            add_ppt_roi(slide, roi_left, roi_top, roi_width, roi_height)
+            add_ppt_roi(slide, roi_left, roi_top, roi_width, roi_height, line_color)
             if draw_connectors:
-                add_ppt_line(slide, (roi_left + roi_width, roi_top), (high_left, row_top))
-                add_ppt_line(slide, (roi_left + roi_width, roi_top + roi_height), (high_left, row_top + image_height))
+                add_ppt_line(slide, (roi_left + roi_width, roi_top), (high_left, row_top), line_color)
+                add_ppt_line(slide, (roi_left + roi_width, roi_top + roi_height), (high_left, row_top + image_height), line_color)
 
     prs.save(output_path)
     return output_path
@@ -831,8 +925,12 @@ def resize_cover(image: Image.Image, size: tuple[int, int]) -> Image.Image:
     return image.resize(size, Image.Resampling.LANCZOS)
 
 
-def resize_contain(image: Image.Image, size: tuple[int, int]) -> Image.Image:
-    target = Image.new("RGB", size, (0, 0, 0))
+def resize_contain(
+    image: Image.Image,
+    size: tuple[int, int],
+    background: tuple[int, int, int] = (0, 0, 0),
+) -> Image.Image:
+    target = Image.new("RGB", size, background)
     copy = image.copy()
     copy.thumbnail(size, Image.Resampling.LANCZOS)
     left = (size[0] - copy.size[0]) // 2
@@ -948,8 +1046,14 @@ def build_raster_pages(manifest: dict[str, Any], settings: dict[str, Any]) -> li
     return pages
 
 
-def draw_rotated_label(canvas: Image.Image, text: str, box: tuple[int, int, int, int], rotation: int = 90) -> None:
-    draw_centered_text(canvas, text, box, (0, 0, 0), 42, bold=True, rotation=rotation)
+def draw_rotated_label(
+    canvas: Image.Image,
+    text: str,
+    box: tuple[int, int, int, int],
+    fill: tuple[int, int, int] = (0, 0, 0),
+    rotation: int = 90,
+) -> None:
+    draw_centered_text(canvas, text, box, fill, 42, bold=True, rotation=rotation)
 
 
 def build_ihc_raster_pages(manifest: dict[str, Any], settings: dict[str, Any]) -> list[Image.Image]:
@@ -961,11 +1065,16 @@ def build_ihc_raster_pages(manifest: dict[str, Any], settings: dict[str, Any]) -
     title = (settings.get("title") or "").strip()
     panel_letter = (settings.get("panel_letter") or "").strip()
     draw_connectors = bool(settings.get("ihc_draw_connectors", True))
-    roi_x = float(settings.get("ihc_roi_x") or 0.32)
-    roi_y = float(settings.get("ihc_roi_y") or 0.36)
-    roi_w = float(settings.get("ihc_roi_w") or 0.30)
-    roi_h = float(settings.get("ihc_roi_h") or 0.28)
+    roi_x, roi_y, roi_w, roi_h = normalized_ihc_roi(settings)
     rows_per_slide = min(max(int(settings.get("rows_per_slide") or len(groups) or 1), 1), 4)
+    dark = (settings.get("background") or "white") == "black"
+    show_group_labels = bool(settings.get("show_sample_name", True))
+    group_label_side = settings.get("group_label_side") or "left"
+    fit_mode = settings.get("fit_mode") or "crop"
+    bg_color = (0, 0, 0) if dark else (255, 255, 255)
+    text_color = (245, 245, 245) if dark else (0, 0, 0)
+    secondary_color = (210, 210, 210) if dark else (80, 80, 80)
+    line_color = (225, 225, 225) if dark else (60, 60, 60)
 
     slide_width = 13.333
     slide_height = 7.5
@@ -976,16 +1085,18 @@ def build_ihc_raster_pages(manifest: dict[str, Any], settings: dict[str, Any]) -
     header_height = 0.36
     bottom_margin = 0.35
     row_gap = 0.34
-    side_label_width = 0.55
+    side_label_width = 0.55 if show_group_labels else 0
+    side_gap = 0.18 if show_group_labels else 0
     between_cols = 0.85
     content_top = top_margin + title_height + header_height
     row_height = (slide_height - content_top - bottom_margin - row_gap * (rows_per_slide - 1)) / rows_per_slide
     image_height = max(0.72, row_height)
     image_width = image_height * 1.72
-    low_left = margin_left + side_label_width + 0.18
+    low_left = margin_left + (side_label_width + side_gap if show_group_labels and group_label_side != "right" else 0)
     high_left = low_left + image_width + between_cols
-    if high_left + image_width > slide_width - margin_right:
-        available = slide_width - margin_right - low_left - between_cols
+    right_reserved = side_label_width + side_gap if show_group_labels and group_label_side == "right" else 0
+    if high_left + image_width > slide_width - margin_right - right_reserved:
+        available = slide_width - margin_right - right_reserved - low_left - between_cols
         image_width = available / 2
         image_height = min(image_height, image_width / 1.72)
         high_left = low_left + image_width + between_cols
@@ -994,25 +1105,34 @@ def build_ihc_raster_pages(manifest: dict[str, Any], settings: dict[str, Any]) -
     pages: list[Image.Image] = []
 
     for page_start in range(0, len(groups), rows_per_slide):
-        canvas = Image.new("RGB", canvas_size, (255, 255, 255))
+        canvas = Image.new("RGB", canvas_size, bg_color)
         draw = ImageDraw.Draw(canvas)
 
         title_left = margin_left + (0.34 if panel_letter else 0)
         if panel_letter:
-            draw_left_text(canvas, panel_letter, (inch(margin_left), inch(top_margin), inch(margin_left + 0.28), inch(top_margin + 0.28)), (0, 0, 0), 52, bold=True)
+            draw_left_text(canvas, panel_letter, (inch(margin_left), inch(top_margin), inch(margin_left + 0.28), inch(top_margin + 0.28)), text_color, 52, bold=True)
         if title:
-            draw_left_text(canvas, title, (inch(title_left), inch(top_margin), inch(slide_width - margin_right), inch(top_margin + 0.28)), (0, 0, 0), 46, bold=True)
+            draw_left_text(canvas, title, (inch(title_left), inch(top_margin), inch(slide_width - margin_right), inch(top_margin + 0.28)), text_color, 46, bold=True)
 
         header_top = top_margin + title_height
-        draw_centered_text(canvas, low_label, (inch(low_left), inch(header_top), inch(low_left + image_width), inch(header_top + 0.28)), (0, 0, 0), 44, bold=True)
-        draw_centered_text(canvas, high_label, (inch(high_left), inch(header_top), inch(high_left + image_width), inch(header_top + 0.28)), (0, 0, 0), 44, bold=True)
+        draw_centered_text(canvas, low_label, (inch(low_left), inch(header_top), inch(low_left + image_width), inch(header_top + 0.28)), text_color, 44, bold=True)
+        draw_centered_text(canvas, high_label, (inch(high_left), inch(header_top), inch(high_left + image_width), inch(header_top + 0.28)), text_color, 44, bold=True)
 
         page_groups = groups[page_start : page_start + rows_per_slide]
         for row_index, group in enumerate(page_groups):
             row_top = content_top + row_index * (row_height + row_gap)
             row_top += max(0, (row_height - image_height) / 2)
             label = group_labels.get(group["key"]) or group["display"]
-            draw_rotated_label(canvas, label, (inch(margin_left), inch(row_top), inch(margin_left + side_label_width), inch(row_top + image_height)))
+            if show_group_labels:
+                label_left = high_left + image_width + side_gap if group_label_side == "right" else margin_left
+                rotation = 270 if group_label_side == "right" else 90
+                draw_rotated_label(
+                    canvas,
+                    label,
+                    (inch(label_left), inch(row_top), inch(label_left + side_label_width), inch(row_top + image_height)),
+                    text_color,
+                    rotation,
+                )
             images_by_channel = {image["channel"]: image for image in group["images"]}
             boxes = {
                 "low": (inch(low_left), inch(row_top), inch(low_left + image_width), inch(row_top + image_height)),
@@ -1023,11 +1143,15 @@ def build_ihc_raster_pages(manifest: dict[str, Any], settings: dict[str, Any]) -
                 box = boxes[channel]
                 if image:
                     with Image.open(image_source_path(image)) as source:
-                        rendered = resize_cover(image_to_rgb(source), (box[2] - box[0], box[3] - box[1]))
+                        rgb = image_to_rgb(source)
+                        if fit_mode == "contain":
+                            rendered = resize_contain(rgb, (box[2] - box[0], box[3] - box[1]), bg_color)
+                        else:
+                            rendered = resize_cover(rgb, (box[2] - box[0], box[3] - box[1]))
                     canvas.paste(rendered, (box[0], box[1]))
                 else:
-                    draw.rectangle(box, outline=(160, 160, 160), width=2)
-                    draw_centered_text(canvas, "missing", box, (80, 80, 80), 26)
+                    draw.rectangle(box, outline=secondary_color, width=2)
+                    draw_centered_text(canvas, "missing", box, secondary_color, 26)
 
             low_box = boxes["low"]
             high_box = boxes["high"]
@@ -1037,10 +1161,10 @@ def build_ihc_raster_pages(manifest: dict[str, Any], settings: dict[str, Any]) -
                 int(low_box[0] + (roi_x + roi_w) * (low_box[2] - low_box[0])),
                 int(low_box[1] + (roi_y + roi_h) * (low_box[3] - low_box[1])),
             )
-            draw.rectangle(roi_box, outline=(45, 45, 45), width=3)
+            draw.rectangle(roi_box, outline=line_color, width=3)
             if draw_connectors:
-                draw.line((roi_box[2], roi_box[1], high_box[0], high_box[1]), fill=(70, 70, 70), width=3)
-                draw.line((roi_box[2], roi_box[3], high_box[0], high_box[3]), fill=(70, 70, 70), width=3)
+                draw.line((roi_box[2], roi_box[1], high_box[0], high_box[1]), fill=line_color, width=3)
+                draw.line((roi_box[2], roi_box[3], high_box[0], high_box[3]), fill=line_color, width=3)
 
         pages.append(canvas)
 
@@ -1051,14 +1175,14 @@ def build_raster_export(manifest: dict[str, Any], settings: dict[str, Any], expo
     figure_type = (settings.get("figure_type") or "if").lower()
     pages = build_ihc_raster_pages(manifest, settings) if figure_type == "ihc" else build_raster_pages(manifest, settings)
     if not pages:
-        raise ValueError("No pages to export")
+        raise ValueError("没有可导出的页面")
 
-    EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = now_stamp()
+    output_dir = job_export_dir(manifest)
+    timestamp = unique_export_stamp()
     prefix = "ihc_batch" if figure_type == "ihc" else "fluorescence_batch"
 
     if export_format == "pdf":
-        output_path = EXPORT_DIR / f"{prefix}_{timestamp}.pdf"
+        output_path = output_dir / f"{prefix}_{timestamp}.pdf"
         pages[0].save(output_path, "PDF", save_all=True, append_images=pages[1:], resolution=300)
         return output_path
 
@@ -1069,13 +1193,13 @@ def build_raster_export(manifest: dict[str, Any], settings: dict[str, Any], expo
     image_format = "JPEG" if export_format == "jpg" else "PNG"
 
     if len(pages) == 1:
-        output_path = EXPORT_DIR / f"{prefix}_{timestamp}.{extension}"
+        output_path = output_dir / f"{prefix}_{timestamp}.{extension}"
         save_kwargs = {"quality": 95} if image_format == "JPEG" else {}
         pages[0].save(output_path, image_format, **save_kwargs)
         return output_path
 
-    zip_path = EXPORT_DIR / f"{prefix}_{timestamp}_{extension}.zip"
-    page_dir = EXPORT_DIR / f"{prefix}_{timestamp}_{extension}_pages"
+    zip_path = output_dir / f"{prefix}_{timestamp}_{extension}.zip"
+    page_dir = output_dir / f"{prefix}_{timestamp}_{extension}_pages"
     page_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
         for index, page in enumerate(pages, start=1):
@@ -1100,10 +1224,11 @@ def wb():
 @app.route("/api/upload", methods=["POST"])
 def upload_folder():
     started_at = perf_counter()
+    cleanup_expired_temp_data()
     files = request.files.getlist("files")
     supported_files = [file for file in files if file.filename and is_supported_image(file.filename)]
     if not supported_files:
-        return jsonify({"error": "No supported image files found"}), 400
+        return jsonify({"error": "没有找到支持的 TIFF、PNG、JPG 或 BMP 图片"}), 400
 
     job_id = uuid.uuid4().hex
     job_dir = JOBS_DIR / job_id
@@ -1125,7 +1250,8 @@ def upload_folder():
         try:
             image_info = prepare_image(destination, preview_path)
         except Exception as exc:
-            return jsonify({"error": f"Failed to read image {storage.filename}: {exc}"}), 400
+            shutil.rmtree(job_dir, ignore_errors=True)
+            return jsonify({"error": f"无法读取图片 {storage.filename}：{exc}"}), 400
 
         items.append(
             {
@@ -1147,10 +1273,14 @@ def upload_folder():
 
 @app.route("/api/jobs/<job_id>/preview/<preview_name>")
 def preview(job_id: str, preview_name: str):
+    if not JOB_ID_PATTERN.fullmatch(job_id) or not PREVIEW_NAME_PATTERN.fullmatch(preview_name):
+        return jsonify({"error": "Preview not found"}), 404
     preview_path = JOBS_DIR / job_id / "preview" / preview_name
     if not preview_path.exists():
         return jsonify({"error": "Preview not found"}), 404
-    return send_file(preview_path)
+    response = send_file(preview_path)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @app.route("/api/export", methods=["POST"])
@@ -1158,7 +1288,7 @@ def export_pptx():
     payload = request.get_json(force=True)
     job_id = payload.get("job_id")
     if not job_id:
-        return jsonify({"error": "Missing job_id"}), 400
+        return jsonify({"error": "缺少任务编号，请重新上传"}), 400
     try:
         manifest = load_manifest(job_id)
         export_format = (payload.get("export_format") or "pptx").lower()
@@ -1171,16 +1301,20 @@ def export_pptx():
             raise ValueError(f"Unsupported export format: {export_format}")
     except Exception as exc:
         return jsonify({"error": str(exc)}), 400
-    return jsonify({"download_url": f"/api/download/{output_path.name}", "filename": output_path.name})
+    return jsonify({"download_url": f"/api/jobs/{job_id}/download/{output_path.name}", "filename": output_path.name})
 
 
-@app.route("/api/download/<filename>")
-def download(filename: str):
-    safe_name = Path(filename).name
-    output_path = EXPORT_DIR / safe_name
-    if not output_path.exists():
+@app.route("/api/jobs/<job_id>/download/<filename>")
+def download(job_id: str, filename: str):
+    if not JOB_ID_PATTERN.fullmatch(job_id) or Path(filename).name != filename or filename in {".", ".."}:
         return jsonify({"error": "Export not found"}), 404
-    return send_file(output_path, as_attachment=True, download_name=safe_name)
+    safe_name = Path(filename).name
+    output_path = EXPORT_DIR / job_id / safe_name
+    if not output_path.is_file():
+        return jsonify({"error": "Export not found"}), 404
+    response = send_file(output_path, as_attachment=True, download_name=safe_name)
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 if __name__ == "__main__":

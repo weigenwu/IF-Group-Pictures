@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="一个在浏览器本地运行的 Western blot 科研组图工具。">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232864e8'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-family='Arial' font-size='22' font-weight='700' fill='white'%3EWB%3C/text%3E%3C/svg%3E">
-  <title>FigureLab · WB 科研组图</title>
+  <title>FigureLab · WB 旧镜像</title>
   <style>
     :root {
       --ink: #142033;
@@ -71,6 +71,20 @@
     .nav-cta { padding: 10px 15px; border-radius: 10px; color: #fff !important; background: var(--blue); }
     .tool-tab { padding: 9px 11px; border-radius: 9px; }
     .tool-tab[aria-current="page"] { color: var(--blue); background: var(--blue-soft); }
+    .legacy-notice {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 10px 18px;
+      color: #7a4b00;
+      background: #fff4d6;
+      border-bottom: 1px solid #efd38d;
+      font-size: 12px;
+      line-height: 1.5;
+      text-align: center;
+    }
+    .legacy-notice a { color: #1d4fbd; font-weight: 850; text-decoration: underline; }
 
     .hero {
       display: grid;
@@ -226,6 +240,7 @@
     .dropzone:hover, .dropzone.is-over { border-color: var(--blue); background: var(--blue-soft); }
     .dropzone strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 13px; }
     .dropzone span { font-size: 11px; }
+    .upload-status { min-height: 17px; margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
     .row-list { display: grid; gap: 10px; margin-top: 14px; }
     .protein-row { padding: 11px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcfe; }
     .protein-row-top { display: grid; grid-template-columns: 44px minmax(0, 1fr) 72px; gap: 8px; align-items: center; }
@@ -246,7 +261,7 @@
     .text-button { padding: 0 9px; }
     .text-button:hover, .icon-button:hover { color: var(--blue); border-color: #a9bdec; }
     .text-button.danger:hover { color: #c02f2f; border-color: #edb5b5; }
-    .text-button:disabled { opacity: .45; cursor: not-allowed; }
+    .text-button:disabled, .icon-button:disabled { opacity: .45; cursor: not-allowed; }
 
     .range-field { display: grid; grid-template-columns: 1fr 46px; gap: 10px; align-items: center; margin-top: 13px; }
     .range-field label { color: var(--muted); font-size: 12px; font-weight: 750; }
@@ -257,6 +272,20 @@
     .toggle input { accent-color: var(--blue); }
 
     .preview-panel { min-width: 0; overflow: hidden; }
+    .workspace[aria-busy="true"]::after {
+      content: "正在处理，请稍候…";
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 90;
+      padding: 12px 16px;
+      border-radius: 11px;
+      color: #fff;
+      background: #142033;
+      box-shadow: 0 14px 36px rgba(20, 32, 51, .24);
+      font-size: 13px;
+      font-weight: 800;
+    }
     .preview-toolbar {
       display: flex;
       align-items: center;
@@ -381,6 +410,7 @@
       .dialog-actions { width: 100%; }
       .dialog-actions .button { flex: 1; }
       .editor-controls { display: block; }
+      .button.small, .text-button, .icon-button { min-height: 42px; }
     }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
@@ -390,16 +420,19 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/wb" aria-label="FigureLab WB 组图首页">
+    <a class="brand" href="#top" aria-label="FigureLab WB 组图首页">
       <span class="brand-mark">Fig</span>
       <span>FigureLab</span>
     </a>
     <nav aria-label="组图工具">
-      <a class="tool-tab" href="/">荧光 / IHC</a>
-      <a class="tool-tab" href="/wb" aria-current="page">WB 组图</a>
+      <a class="tool-tab" href="/" target="_blank" rel="noopener" title="在新标签页打开，保留当前旧镜像项目">荧光 / IHC ↗</a>
+      <a class="tool-tab" href="#top" aria-current="page">WB 组图</a>
       <a class="nav-cta" href="#studio">开始使用</a>
     </nav>
   </header>
+
+  <!-- ponytail: 保留旧镜像仅用于迁移 Render 域名下已有的浏览器项目。 -->
+  <aside class="legacy-notice"><strong>WB 旧镜像：</strong>这里的自动保存与 GitHub Pages 不互通。如有旧项目，请先“下载项目文件”，再到 <a href="https://weigenwu.github.io/wb/#studio">WB 主站</a>导入。</aside>
 
   <main id="top">
     <section class="hero">
@@ -409,7 +442,7 @@
         <p class="lead">上传已经显影的条带图，网页会把蛋白名称、分组线和分子量统一排好。裁剪、亮度与对比度可随时微调，完成后直接导出论文可用的 PNG 或 SVG。</p>
         <div class="hero-actions">
           <a class="button primary" href="#studio">现在开始组图</a>
-          <button class="button ghost" id="loadDemoTop" type="button">看看示例数据</button>
+          <a class="button ghost" href="#features">了解功能</a>
         </div>
         <p class="privacy-note">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -467,6 +500,7 @@
             <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="上传条带图片">
               <div><strong>拖入或选择条带图片</strong><span>PNG / JPG / WebP / BMP / 8-bit 灰度 TIFF，可一次多选</span></div>
             </div>
+            <p class="upload-status" id="uploadStatus" role="status" aria-live="polite">尚未读取新图片</p>
             <div class="row-list" id="rowList"></div>
             <div class="inline-actions">
               <button class="button small" id="addRow" type="button">＋ 新增空行</button>
@@ -486,14 +520,10 @@
               <button class="button small" id="compactPreset" type="button">套用参考图样式</button>
             </div>
             <div class="range-field">
-              <label for="laneWidth">单泳道宽度<input id="laneWidth" type="range" min="28" max="130" value="40"></label>
+              <label for="laneWidth">泳道宽度 / 条带高度（锁定 1:1）<input id="laneWidth" type="range" min="28" max="130" value="40"></label>
               <span class="range-value" id="laneWidthValue">40 px</span>
             </div>
             <p class="field-help">图中文字默认使用 Arial；泳道宽度与条带高度始终保持 1:1，条带高 1 cm 时，3 个泳道即宽 3 cm。</p>
-            <div class="range-field">
-              <label for="rowHeight">条带行高<input id="rowHeight" type="range" min="28" max="130" value="40"></label>
-              <span class="range-value" id="rowHeightValue">40 px</span>
-            </div>
             <div class="range-field">
               <label for="rowGap">行间距<input id="rowGap" type="range" min="0" max="48" value="7"></label>
               <span class="range-value" id="rowGapValue">7 px</span>
@@ -529,9 +559,10 @@
                 <button class="button small" id="copyPng" type="button">复制图片</button>
               </div>
               <div class="project-actions">
+                <button class="button small" id="newProject" type="button">新建图组</button>
                 <input id="projectFile" type="file" accept=".wb-project,application/json" hidden>
-                <button class="button small" id="saveProject" type="button">保存项目</button>
-                <button class="button small" id="openProject" type="button">打开项目</button>
+                <button class="button small" id="saveProject" type="button">下载项目文件</button>
+                <button class="button small" id="openProject" type="button">导入项目文件</button>
                 <button class="button small" id="exportAudit" type="button">导出处理记录 CSV</button>
                 <span class="autosave-status" id="autosaveStatus" aria-live="polite">自动保存：正在准备</span>
               </div>
@@ -755,7 +786,7 @@
       function syncLayoutControls() {
         $("#layoutMode").value = state.layoutMode;
         $("#footerLabel").value = state.footerLabel;
-        [["laneWidth", "laneWidthValue", state.laneWidth], ["rowHeight", "rowHeightValue", state.rowHeight], ["rowGap", "rowGapValue", state.rowGap], ["labelSize", "labelSizeValue", state.labelSize]].forEach(([inputId, valueId, value]) => {
+        [["laneWidth", "laneWidthValue", state.laneWidth], ["rowGap", "rowGapValue", state.rowGap], ["labelSize", "labelSizeValue", state.labelSize]].forEach(([inputId, valueId, value]) => {
           $("#" + inputId).value = value;
           $("#" + valueId).textContent = `${value} px`;
         });
@@ -939,14 +970,7 @@
         return canvas.toDataURL("image/png");
       }
 
-      async function loadDemo(silent = false) {
-        if (pendingMutations) {
-          if (!silent) toast("当前图片仍在处理中，请稍后再恢复示例");
-          return;
-        }
-        beginImageMutation();
-        try {
-        state.rows.forEach((row) => { if (row.objectUrl) URL.revokeObjectURL(row.objectUrl); });
+      function resetProjectSettings() {
         state.projectId = newProjectId();
         state.modifiedAt = new Date().toISOString();
         state.groups = [{ name: "Control", count: 1 }, { name: "Group 1", count: 1 }, { name: "Group 2", count: 1 }];
@@ -960,6 +984,20 @@
         state.showMw = true;
         state.showLanes = false;
         state.showBorder = true;
+        state.pngDpi = 300;
+        state.editor = null;
+        state.demoLoaded = false;
+      }
+
+      async function loadDemo(silent = false) {
+        if (pendingMutations) {
+          if (!silent) toast("当前图片仍在处理中，请稍后再恢复示例");
+          return;
+        }
+        beginImageMutation();
+        try {
+        state.rows.forEach((row) => { if (row.objectUrl) URL.revokeObjectURL(row.objectUrl); });
+        resetProjectSettings();
         const definitions = [
           ["Protein A", "100 KD", [.88, .72, .63], 21],
           ["Protein B", "40 KD", [.68, .72, .70], 47]
@@ -991,12 +1029,52 @@
         }
       }
 
+      function hasProjectWork() {
+        const defaultGroups = [{ name: "Control", count: 1 }, { name: "Group 1", count: 1 }, { name: "Group 2", count: 1 }];
+        return state.rows.length > 0
+          || JSON.stringify(state.groups) !== JSON.stringify(defaultGroups)
+          || JSON.stringify(state.laneLabels) !== JSON.stringify(["Control", "Group 1", "Group 2"])
+          || state.layoutMode !== "compact"
+          || state.footerLabel !== "Cell line"
+          || state.laneWidth !== 40
+          || state.rowHeight !== 40
+          || state.rowGap !== 7
+          || state.labelSize !== 16
+          || !state.showMw
+          || state.showLanes
+          || !state.showBorder
+          || state.pngDpi !== 300;
+      }
+
+      function newProject() {
+        if (pendingMutations) return toast("当前图片仍在处理中，请稍后再新建图组");
+        if (hasProjectWork() && !confirm("新建图组会替换当前自动保存的项目。需要保留时请先下载项目文件，继续吗？")) return;
+        if (imageEditor.open) imageEditor.close();
+        pointerAction = null;
+        state.rows.forEach((row) => { if (row.objectUrl) URL.revokeObjectURL(row.objectUrl); });
+        resetProjectSettings();
+        state.rows = [];
+        state.dirty = false;
+        $("#groupInput").value = groupsToText(state.groups);
+        $("#laneLabelInput").value = "";
+        syncLayoutControls();
+        renderGroupSummary();
+        renderRows();
+        requestRender();
+        markDirty();
+        $("#uploadStatus").textContent = "新图组已建立，可拖入条带图片";
+        toast("已新建空白图组");
+      }
+
       function makeButton(label, className, action, title) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = className;
         button.textContent = label;
-        if (title) button.title = title;
+        if (title) {
+          button.title = title;
+          button.setAttribute("aria-label", title);
+        }
         button.addEventListener("click", action);
         return button;
       }
@@ -1109,29 +1187,38 @@
         if (pendingMutations) return toast("当前图片仍在处理中，请等待完成后再上传");
         beginImageMutation();
         try {
-        let added = 0;
-        for (const file of incoming) {
-          if (state.rows.length >= MAX_ROWS) {
-            toast(`每个图组最多支持 ${MAX_ROWS} 行蛋白`);
-            break;
-          }
-          try {
-            const row = await rowFromFile(file);
-            if (state.demoLoaded) {
-              state.rows.forEach((item) => { if (item.objectUrl) URL.revokeObjectURL(item.objectUrl); });
-              state.rows = [];
-              state.demoLoaded = false;
+          let added = 0;
+          const failures = [];
+          for (const [index, file] of incoming.entries()) {
+            $("#uploadStatus").textContent = `正在读取 ${index + 1}/${incoming.length}：${file.name}`;
+            if (state.rows.length >= MAX_ROWS) {
+              const count = incoming.length - index;
+              failures.push({ count, message: `其余 ${count} 张：超过 ${MAX_ROWS} 行上限` });
+              break;
             }
-            state.rows.push(row);
-            added += 1;
-          } catch (error) { toast(error.message); }
-        }
-        if (added) {
-          markDirty();
-          renderRows();
-          requestRender();
-          toast(`已添加 ${added} 张条带图`);
-        }
+            try {
+              const row = await rowFromFile(file);
+              if (state.demoLoaded) {
+                state.rows.forEach((item) => { if (item.objectUrl) URL.revokeObjectURL(item.objectUrl); });
+                state.rows = [];
+                state.demoLoaded = false;
+              }
+              state.rows.push(row);
+              added += 1;
+            } catch (error) {
+              const message = String(error.message || "读取失败");
+              failures.push({ count: 1, message: message.startsWith(`${file.name}：`) ? message : `${file.name}：${message}` });
+            }
+          }
+          if (added) {
+            markDirty();
+            renderRows();
+            requestRender();
+          }
+          const failureCount = failures.reduce((sum, failure) => sum + failure.count, 0);
+          const failureSummary = failureCount ? `；失败 ${failureCount}：${failures.slice(0, 2).map((failure) => failure.message).join("；")}${failures.length > 2 ? "；…" : ""}` : "";
+          $("#uploadStatus").textContent = `已添加 ${added} 张${failureSummary}`;
+          toast(failureCount ? `完成：成功 ${added}，失败 ${failureCount}` : `已添加 ${added} 张条带图`);
         } finally {
           endImageMutation();
         }
@@ -1806,7 +1893,7 @@
         state.laneLabels = settings.laneLabels;
         state.layoutMode = settings.layoutMode;
         state.footerLabel = settings.footerLabel;
-        state.laneWidth = settings.laneWidth;
+        state.laneWidth = settings.rowHeight;
         state.rowHeight = settings.rowHeight;
         state.rowGap = settings.rowGap;
         state.labelSize = settings.labelSize;
@@ -2300,7 +2387,6 @@
       $("#loadDemo").addEventListener("click", () => {
         if (confirm("恢复示例会替换当前条带与标签，继续吗？")) loadDemo();
       });
-      $("#loadDemoTop").addEventListener("click", () => { location.hash = "#studio"; });
       $("#addRow").addEventListener("click", () => {
         if (state.rows.length >= MAX_ROWS) return toast(`每个图组最多支持 ${MAX_ROWS} 行蛋白`);
         state.rows.push(blankRow());
@@ -2350,17 +2436,12 @@
         toast("已套用期刊紧凑样式");
       });
 
-      [["laneWidth", "laneWidthValue", "laneWidth"], ["rowHeight", "rowHeightValue", "rowHeight"], ["rowGap", "rowGapValue", "rowGap"], ["labelSize", "labelSizeValue", "labelSize"]].forEach(([inputId, valueId, key]) => {
+      [["laneWidth", "laneWidthValue", "laneWidth"], ["rowGap", "rowGapValue", "rowGap"], ["labelSize", "labelSizeValue", "labelSize"]].forEach(([inputId, valueId, key]) => {
         $("#" + inputId).addEventListener("input", (event) => {
           const value = Number(event.target.value);
           state[key] = value;
           $("#" + valueId).textContent = `${event.target.value} px`;
-          if (key === "laneWidth" || key === "rowHeight") {
-            const linkedInput = key === "laneWidth" ? "rowHeight" : "laneWidth";
-            state[linkedInput] = value;
-            $("#" + linkedInput).value = value;
-            $("#" + linkedInput + "Value").textContent = `${value} px`;
-          }
+          if (key === "laneWidth") state.rowHeight = value;
           markDirty();
           requestRender();
         });
@@ -2374,6 +2455,7 @@
       $("#pngDpi").addEventListener("change", (event) => { state.pngDpi = Number(event.target.value) === 600 ? 600 : 300; markDirty(); });
       $("#saveProject").addEventListener("click", exportProject);
       $("#openProject").addEventListener("click", () => $("#projectFile").click());
+      $("#newProject").addEventListener("click", newProject);
       $("#projectFile").addEventListener("change", (event) => {
         const file = event.target.files[0];
         event.target.value = "";
