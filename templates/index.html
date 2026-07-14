@@ -15,8 +15,9 @@
         <span>FigureLab</span>
       </a>
       <nav class="suite-tabs" aria-label="组图工具">
-        <a class="suite-tab" href="#top" aria-current="page">荧光 / IHC</a>
+        <a class="suite-tab" href="#top" aria-current="page">荧光 / IHC <span class="suite-mode">服务器处理</span></a>
         <a class="suite-tab" href="https://weigenwu.github.io/wb/#studio" target="_blank" rel="noopener" title="在新标签页打开；WB 图片只在浏览器本地处理">WB 组图 ↗</a>
+        <a class="suite-tab" href="https://weigenwu.github.io/ikun-calculator/" target="_blank" rel="noopener" title="在新标签页打开实验计算器">实验计算器 ↗</a>
       </nav>
     </header>
     <main class="shell" id="top">
@@ -41,6 +42,23 @@
           </div>
           <p id="fileSummary" class="file-summary" aria-live="polite">可选择整个文件夹，或一次多选图片。</p>
         </div>
+      </section>
+
+      <section class="workflow-bar" aria-label="项目与编辑操作">
+        <div class="workflow-group">
+          <button id="undoBtn" class="quiet-button" type="button" disabled title="撤销（Ctrl+Z）">撤销</button>
+          <button id="redoBtn" class="quiet-button" type="button" disabled title="重做（Ctrl+Y）">重做</button>
+          <select id="templateSelect" aria-label="设置模板">
+            <option value="">设置模板…</option>
+          </select>
+          <button id="saveTemplateBtn" class="quiet-button" type="button">保存模板</button>
+        </div>
+        <div class="workflow-group">
+          <button id="preflightBtn" class="quiet-button" type="button" disabled title="投稿预检（Ctrl+Enter）">投稿预检</button>
+          <button id="projectExportBtn" class="quiet-button" type="button" disabled>导出项目</button>
+          <button id="complianceExportBtn" class="quiet-button" type="button" disabled>投稿合规包</button>
+        </div>
+        <p class="shortcut-hint">Ctrl+Z / Ctrl+Y 撤销重做 · Ctrl+Enter 预检 · Ctrl+Shift+E 导出</p>
       </section>
 
       <section class="settings">
@@ -107,12 +125,37 @@
           </select>
         </label>
         <label>
+          期刊尺寸
+          <select id="exportProfile">
+            <option value="slides" selected>演示文稿（33.87 cm）</option>
+            <option value="nature-single">期刊单栏（8.9 cm）</option>
+            <option value="nature-double">期刊双栏（18.3 cm）</option>
+            <option value="custom">自定义</option>
+          </select>
+        </label>
+        <label>
+          宽度（cm）
+          <input id="exportWidth" type="number" min="3" max="40" step="0.1" value="33.87">
+        </label>
+        <label>
+          高度（cm）
+          <input id="exportHeight" type="number" min="2" max="40" step="0.1" value="19.05">
+        </label>
+        <label>
+          分辨率
+          <select id="exportDpi">
+            <option value="300" selected>300 DPI</option>
+            <option value="600">600 DPI</option>
+          </select>
+        </label>
+        <label>
           导出格式
           <select id="exportFormat">
             <option value="pptx" selected>PPTX</option>
             <option value="png">PNG</option>
             <option value="jpg">JPG</option>
             <option value="pdf">PDF</option>
+            <option value="tiff">TIFF</option>
           </select>
         </label>
         <label class="check-label">
@@ -129,6 +172,10 @@
         <label>
           高倍列名
           <input id="ihcHighLabel" type="text" value="20X">
+        </label>
+        <label>
+          当前 ROI 组
+          <select id="ihcRoiGroup" aria-label="选择要调整 ROI 的组别"></select>
         </label>
         <label>
           ROI X
@@ -150,6 +197,64 @@
           <input id="ihcDrawConnectors" type="checkbox" checked>
           显示连线（导出文件）
         </label>
+        <button id="resetIhcRoi" class="quiet-button" type="button">重置当前 ROI</button>
+      </section>
+
+      <section id="scaleSettings" class="settings settings-card" aria-labelledby="scaleTitle">
+        <div id="scaleTitle" class="section-title">比例尺与标定</div>
+        <label class="check-label">
+          <input id="showScaleBar" type="checkbox">
+          显示比例尺
+        </label>
+        <label>
+          标示长度（µm）
+          <input id="scaleLength" type="number" min="0.01" step="0.1" value="50">
+        </label>
+        <label>
+          位置
+          <select id="scalePosition">
+            <option value="bottom-right" selected>右下</option>
+            <option value="bottom-left">左下</option>
+            <option value="top-right">右上</option>
+            <option value="top-left">左上</option>
+          </select>
+        </label>
+        <label>
+          颜色
+          <select id="scaleColor">
+            <option value="white" selected>白色</option>
+            <option value="black">黑色</option>
+          </select>
+        </label>
+        <label>
+          线宽（px）
+          <input id="scaleThickness" type="number" min="1" max="12" step="1" value="4">
+        </label>
+        <label>
+          标定对象
+          <select id="calibrationTarget">
+            <option value="default" selected>IF / IHC 低倍</option>
+            <option value="high">IHC 高倍</option>
+          </select>
+        </label>
+        <label>
+          已知像素长度
+          <input id="calibrationPixels" type="number" min="0" step="0.1" placeholder="例如 250">
+        </label>
+        <label>
+          对应实际长度（µm）
+          <input id="calibrationMicrons" type="number" min="0" step="0.1" placeholder="例如 50">
+        </label>
+        <label>
+          IF / IHC 低倍像素 / µm
+          <input id="pixelsPerMicron" type="number" min="0" step="0.001" placeholder="标定后生成">
+        </label>
+        <label id="highCalibrationField" hidden>
+          IHC 高倍像素 / µm
+          <input id="highPixelsPerMicron" type="number" min="0" step="0.001" placeholder="高倍图独立标定">
+        </label>
+        <button id="calibrateBtn" class="quiet-button" type="button">计算标定</button>
+        <p id="calibrationStatus" class="inline-note" aria-live="polite">IF 同一视野各通道可共用校准；IHC 低倍与高倍必须分别标定。</p>
       </section>
 
       <section id="progressPanel" class="progress-panel" hidden>
@@ -173,6 +278,17 @@
         <div id="groupLabels" class="group-labels"></div>
       </section>
 
+      <section id="imageLibraryPanel" class="library-panel" hidden aria-labelledby="libraryTitle">
+        <div class="library-head">
+          <div>
+            <div id="libraryTitle" class="section-title">图片缩略图库与映射</div>
+            <p class="preview-hint">拖动缩略图可调整原图顺序；拖到预览单元格可交换图片。也可用每张图下方的组别与位置下拉框精确映射。</p>
+          </div>
+          <div id="mappingSummary" class="mapping-summary" aria-live="polite"></div>
+        </div>
+        <div id="imageGallery" class="image-gallery" role="list"></div>
+      </section>
+
       <section class="preview-head">
         <div>
           <div class="section-title">内容预览</div>
@@ -187,6 +303,23 @@
         <div class="empty-text">预览会显示在这里。</div>
       </section>
     </main>
+
+    <dialog id="preflightDialog" class="preflight-dialog" aria-labelledby="preflightTitle">
+      <form method="dialog" class="dialog-card">
+        <div class="dialog-head">
+          <div>
+            <h2 id="preflightTitle">投稿预检</h2>
+            <p id="preflightSummary">正在检查图片、映射和导出规格…</p>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="关闭投稿预检">×</button>
+        </div>
+        <ul id="preflightResults" class="preflight-results" aria-live="polite"></ul>
+        <div class="dialog-actions">
+          <button id="rerunPreflight" class="quiet-button" type="button">重新检查</button>
+          <button value="cancel" type="submit">完成</button>
+        </div>
+      </form>
+    </dialog>
 
     <script src="/static/app.js"></script>
   </body>
