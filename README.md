@@ -1,14 +1,16 @@
-# FigureLab 科研组图
+# 实验室工作台 · IF / IHC 组图
 
-同一套网页中提供荧光 / IHC 与 Western blot 两个独立工作台。荧光 / IHC 支持选择整个文件夹后自动生成论文组图版式，并导出为 `PPTX / PNG / JPG / PDF / TIFF`；WB 工作台在浏览器本地处理 TIFF 条带并导出论文图。
+本仓库只维护需要 Python 服务器处理的 IF 荧光 / IHC 组化组图应用。页面使用实验室统一品牌和跨站导航连接计算器门户与 WB 主站；三个应用保持各自适合的数据处理边界，不使用 iframe，也不复制彼此的功能代码。
 
 ## 工作台入口
 
-- `/`：荧光 / IHC 组图，图片上传至当前服务器处理
-- `https://weigenwu.github.io/wb/`：WB 主站，图片只在当前浏览器中处理，并保留原域名下的自动保存项目
-- `/wb`：旧 Render 镜像，仅用于迁移该域名下已有的 `.wb-project`
+- `https://weigenwu.github.io/ikun-calculator/`：实验室统一入口与计算器，本地计算
+- `https://weigenwu.github.io/wb/#studio`：唯一维护的 WB 组图与灰度应用，原图仅在浏览器本地处理
+- `/`：IF / IHC 组图，图片上传至当前服务器处理
+- `/wb` 与 `/wb/`：兼容旧书签，直接跳转到上述 WB 主站
+- `/wb-migrate`：仅用于导出曾保存在当前 Render 域名 IndexedDB 中的旧 WB 自动保存项目；它只读 `blotboard-wb / projects / current`，不包含 WB 编辑或分析功能
 
-WB 自动保存按网站域名隔离。需要从旧 Render 镜像迁移时，请先在原页面下载 `.wb-project`，再到 Pages 主站导入。
+如需迁移旧项目，必须使用当时保存项目的同一浏览器打开 Render 站点的 `/wb-migrate`，下载 `.wb-project` 后再到 WB 主站选择“导入项目文件”。迁移页不会上传或改写旧数据。
 
 荧光 / IHC 原图与导出文件位于 Render 临时文件系统。应用会在后续上传时清理超过 24 小时的数据，平台重启或重新部署也可能提前清除；请仅上传允许交由服务器处理的数据。
 
@@ -51,7 +53,7 @@ python app.py
 
 ```text
 http://127.0.0.1:5055/       # 荧光 / IHC
-http://127.0.0.1:5055/wb     # WB
+http://127.0.0.1:5055/wb     # 跳转到 WB 主站
 ```
 
 ## IF 文件命名建议
@@ -91,3 +93,5 @@ Render 可用启动命令：
 ```bash
 gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300
 ```
+
+开发环境已安装 Playwright 与 Edge 时，可运行 `node tests/e2e-shell.cjs` 验证移动端壳层和 IndexedDB 旧项目迁移下载；可通过 `PYTHON`、`BROWSER_EXECUTABLE` 和 `TEST_PORT` 指定本机路径与端口。

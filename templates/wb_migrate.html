@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#2864e8">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232864e8'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-family='Arial' font-size='18' font-weight='700' fill='white'%3ELab%3C/text%3E%3C/svg%3E">
+    <title>旧 WB 项目迁移 · 实验室工作台</title>
+    <style>
+      :root { color-scheme: light; --ink: #172326; --muted: #607177; --line: #cfdbd8; --blue: #2864e8; --blue-dark: #1d4fbd; --mint: #dff4f0; --green: #075d58; }
+      * { box-sizing: border-box; }
+      body { min-width: 320px; margin: 0; color: var(--ink); background: linear-gradient(135deg, #f5f8fc, #edf7f4); font-family: Arial, "Microsoft YaHei", sans-serif; }
+      main { width: min(620px, calc(100% - 28px)); min-height: 100vh; display: grid; place-items: center; margin: auto; padding: 36px 0; }
+      article { width: 100%; padding: clamp(22px, 5vw, 38px); border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 22px 60px rgba(32, 65, 120, .12); }
+      .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; font-weight: 800; }
+      .mark { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 10px; color: #fff; background: linear-gradient(135deg, var(--blue), #08766d); font-size: 11px; }
+      h1 { margin: 0 0 12px; font-size: clamp(26px, 6vw, 34px); }
+      p, li { color: var(--muted); line-height: 1.7; }
+      ol { padding-left: 22px; }
+      .privacy { padding: 11px 13px; border-radius: 9px; color: var(--green); background: var(--mint); font-size: 13px; font-weight: 700; }
+      button, a { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font: inherit; font-weight: 800; text-decoration: none; }
+      button { width: 100%; margin-top: 18px; border: 0; color: #fff; background: var(--blue); cursor: pointer; }
+      button:hover { background: var(--blue-dark); }
+      button:disabled { opacity: .55; cursor: wait; }
+      a { margin-top: 10px; color: var(--blue-dark); }
+      :focus-visible { outline: 3px solid rgba(40, 100, 232, .3); outline-offset: 3px; }
+      #migrateStatus { min-height: 48px; margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #f8fafb; font-size: 13px; }
+    </style>
+    <script defer src="/static/wb-migrate.js"></script>
+  </head>
+  <body>
+    <main>
+      <article>
+        <div class="brand"><span class="mark" aria-hidden="true">Lab</span><span>实验室工作台</span></div>
+        <h1>导出旧 WB 自动保存项目</h1>
+        <p>此页仅用于迁移曾保存在 IF/IHC（Render）域名下的 WB 项目，不包含组图、灰度分析或 TIFF 编辑功能。</p>
+        <ol>
+          <li>点击下方按钮，下载 <code>.wb-project</code> 文件。</li>
+          <li>前往 WB 主站，选择“导入项目文件”。</li>
+        </ol>
+        <p class="privacy">只读取此浏览器在当前 Render 域名下的 IndexedDB，项目不会上传到服务器，也不会改写旧记录。</p>
+        <button id="exportLegacyProject" type="button">导出旧自动保存项目</button>
+        <p id="migrateStatus" role="status" aria-live="polite">等待导出。若换过浏览器、清理过网站数据或平台域名，此处可能找不到旧项目。</p>
+        <a href="https://weigenwu.github.io/wb/#studio">前往 WB 主站导入</a>
+      </article>
+    </main>
+  </body>
+</html>

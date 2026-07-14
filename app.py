@@ -12,7 +12,7 @@ from pathlib import Path
 from time import perf_counter, time
 from typing import Any
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, redirect, render_template, request, send_file
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -2006,7 +2006,13 @@ def index():
 @app.route("/wb")
 @app.route("/wb/")
 def wb():
-    return render_template("wb.html")
+    return redirect("https://weigenwu.github.io/wb/#studio", code=302)
+
+
+@app.route("/wb-migrate")
+@app.route("/wb-migrate/")
+def wb_migrate():
+    return render_template("wb_migrate.html")
 
 
 @app.route("/api/upload", methods=["POST"])

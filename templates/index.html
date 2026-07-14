@@ -3,29 +3,33 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="FigureLab 荧光、IHC 与 Western blot 科研组图工具。">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232864e8'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-family='Arial' font-size='20' font-weight='700' fill='white'%3EFig%3C/text%3E%3C/svg%3E">
-    <title>FigureLab · 荧光 / IHC 组图</title>
+    <meta name="theme-color" content="#2864e8">
+    <meta name="description" content="实验室一体化工作台中的 IF 荧光与 IHC 组化科研组图工具。">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232864e8'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-family='Arial' font-size='18' font-weight='700' fill='white'%3ELab%3C/text%3E%3C/svg%3E">
+    <title>实验室工作台 · IF / IHC 组图</title>
     <link rel="stylesheet" href="/static/styles.css">
   </head>
-  <body>
+  <body id="top">
     <header class="suitebar">
-      <a class="suite-brand" href="#top" aria-label="返回当前页面顶部">
-        <span class="suite-mark" aria-hidden="true">Fig</span>
-        <span>FigureLab</span>
+      <a class="suite-brand" href="https://weigenwu.github.io/ikun-calculator/" aria-label="前往实验室统一入口">
+        <span class="suite-mark" aria-hidden="true">Lab</span>
+        <span>实验室工作台</span>
       </a>
-      <nav class="suite-tabs" aria-label="组图工具">
-        <a class="suite-tab" href="#top" aria-current="page">荧光 / IHC <span class="suite-mode">服务器处理</span></a>
-        <a class="suite-tab" href="https://weigenwu.github.io/wb/#studio" target="_blank" rel="noopener" title="在新标签页打开；WB 图片只在浏览器本地处理">WB 组图 ↗</a>
-        <a class="suite-tab" href="https://weigenwu.github.io/ikun-calculator/" target="_blank" rel="noopener" title="在新标签页打开实验计算器">实验计算器 ↗</a>
+      <nav class="suite-tabs" aria-label="实验室工具套件">
+        <a class="suite-tab" href="https://weigenwu.github.io/ikun-calculator/">实验流程</a>
+        <a class="suite-tab" href="https://weigenwu.github.io/wb/#studio" title="WB 原图只在浏览器本地处理">WB</a>
+        <a class="suite-tab" href="#top" aria-current="page">IF / IHC <span class="suite-mode">当前</span></a>
       </nav>
     </header>
-    <main class="shell" id="top">
+    <aside class="suite-boundary" aria-label="IF 和 IHC 数据处理说明">
+      <span class="suite-status">服务器处理</span>
+      <p><strong>IF / IHC 数据边界：</strong>图片会上传到 Render 临时文件系统；后续上传时会清理超过 24 小时的数据，平台重启或重新部署也可能提前清除。请仅上传允许交由服务器处理的数据。休眠后首次打开可能需要约 1 分钟。</p>
+    </aside>
+    <main class="shell">
       <section class="toolbar">
         <div class="title-block">
-          <h1>荧光 / IHC 组图</h1>
-          <p id="summary">支持 IF 荧光图和 IHC 组化图，选择文件夹后按论文组图样式自动排版。</p>
-          <p class="data-note"><strong>服务器处理：</strong>图片会上传到 Render 临时文件系统；应用会在后续上传时清理超过 24 小时的数据，平台重启或重新部署也可能提前清除。请仅上传允许交由服务器处理的数据。休眠后首次打开可能需要约 1 分钟。</p>
+          <h1>IF / IHC 组图</h1>
+          <p id="summary">批量整理 IF 荧光图和 IHC 组化图，按论文组图样式自动排版。</p>
         </div>
 
         <div class="upload-actions">
