@@ -354,6 +354,33 @@ class ApiWorkflowTests(unittest.TestCase):
                 patch.object(app_module, "EXPORT_DIR", root / "exports"),
             ):
                 client = app_module.app.test_client()
+                landing = client.get("/")
+                self.assertEqual(landing.status_code, 200)
+                landing_html = landing.get_data(as_text=True)
+                self.assertIn("实验室工作台", landing_html)
+                self.assertLess(landing_html.index("实验流程"), landing_html.index(">WB<"))
+                self.assertLess(landing_html.index(">WB<"), landing_html.index("IF / IHC <span"))
+                self.assertIn("后续上传时会清理超过 24 小时的数据", landing_html)
+                self.assertNotIn('target="_blank"', landing_html)
+
+                for legacy_path in ("/wb", "/wb/"):
+                    legacy = client.get(legacy_path)
+                    self.assertEqual(legacy.status_code, 302)
+                    self.assertEqual(legacy.headers["Location"], "https://weigenwu.github.io/wb/#studio")
+
+                for migration_path in ("/wb-migrate", "/wb-migrate/"):
+                    migration = client.get(migration_path)
+                    self.assertEqual(migration.status_code, 200)
+                    migration_html = migration.get_data(as_text=True)
+                    self.assertIn('/static/wb-migrate.js', migration_html)
+                    self.assertNotIn("wb-tiff.js", migration_html)
+                    self.assertNotIn("灰度数据", migration_html)
+                migration_script = (Path(__file__).parent / "static" / "wb-migrate.js").read_text(encoding="utf-8")
+                self.assertIn('const DB_NAME = "blotboard-wb";', migration_script)
+                self.assertIn('const STORE_NAME = "projects";', migration_script)
+                self.assertIn('const RECORD_KEY = "current";', migration_script)
+                self.assertIn('db.transaction(STORE_NAME, "readonly")', migration_script)
+
                 upload = client.post(
                     "/api/upload",
                     data={
